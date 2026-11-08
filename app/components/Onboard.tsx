@@ -22,6 +22,7 @@ export function Onboard() {
   const [perCall, setPerCall] = useState(1_000_000);
   const [daily, setDaily] = useState(5_000_000);
   const [allowlist, setAllowlist] = useState<string[]>([]);
+  const [payee, setPayee] = useState('');
   const [agent, setAgent] = useState<PublicAgent | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,27 +173,69 @@ export function Onboard() {
 
           <fieldset className="allowlist">
             <legend className="field__label">
-              Payee allowlist — leave empty to allow any listed vendor
+              Who this agent may pay — leave empty to allow any vendor
             </legend>
+
+            {allowlist.length > 0 ? (
+              <div className="payees">
+                {allowlist.map((entry) => (
+                  <span className="payee" key={entry}>
+                    <span className="mono">{entry}</span>
+                    <button
+                      type="button"
+                      className="payee__x"
+                      aria-label={`Remove ${entry}`}
+                      onClick={() => setAllowlist((current) => current.filter((id) => id !== entry))}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="payees__empty">any vendor can be paid</span>
+            )}
+
+            <form
+              className="payees__form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const value = payee.trim();
+                if (!value || allowlist.includes(value)) return;
+                setAllowlist((current) => [...current, value]);
+                setPayee('');
+              }}
+            >
+              <input
+                className="field__input field__input--tight"
+                value={payee}
+                placeholder="vendor id or wallet address"
+                onChange={(event) => setPayee(event.target.value)}
+                spellCheck={false}
+              />
+              <button className="key key--quiet" type="submit" disabled={!payee.trim()}>
+                Add
+              </button>
+            </form>
+
             <div className="allowlist__row">
-              {CATALOG.map((service) => {
-                const on = allowlist.includes(service.id);
-                return (
-                  <button
-                    key={service.id}
-                    type="button"
-                    className={`switch${on ? ' switch--armed' : ''}`}
-                    aria-pressed={on}
-                    onClick={() =>
-                      setAllowlist((current) =>
-                        on ? current.filter((id) => id !== service.id) : [...current, service.id],
-                      )
-                    }
-                  >
-                    {service.name}
-                  </button>
-                );
-              })}
+              <span className="payees__hint">Quick add:</span>
+              {CATALOG.map((service) => (
+                <button
+                  key={service.id}
+                  type="button"
+                  className={`switch${allowlist.includes(service.id) ? ' switch--armed' : ''}`}
+                  onClick={() =>
+                    setAllowlist((current) =>
+                      current.includes(service.id)
+                        ? current.filter((id) => id !== service.id)
+                        : [...current, service.id],
+                    )
+                  }
+                >
+                  {service.name}
+                </button>
+              ))}
             </div>
           </fieldset>
 

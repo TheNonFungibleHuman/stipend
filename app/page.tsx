@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Faq } from './components/Faq';
+import { HeroDial } from './components/HeroDial';
 import { HowItWorks } from './components/HowItWorks';
 import { Proof } from './components/Proof';
 import { Reveal } from './components/Reveal';
@@ -95,49 +96,7 @@ export default function Landing() {
           </ul>
         </div>
 
-        <aside className="sheet">
-          <span className="screw screw--tl" aria-hidden="true" />
-          <span className="screw screw--br" aria-hidden="true" />
-          <h2 className="sheet__title">What an agent gets when you create it</h2>
-          <ul className="sheet__list">
-            <li>
-              <span className="sheet__k">Wallet</span>
-              <span className="sheet__v">
-                a Solana keypair and a stablecoin token account, funded by you
-              </span>
-            </li>
-            <li>
-              <span className="sheet__k">Caps</span>
-              <span className="sheet__v">a per-call limit, a daily budget, and a payee allowlist</span>
-            </li>
-            <li>
-              <span className="sheet__k">Token</span>
-              <span className="sheet__v">
-                an API token it presents to vendors and to the wallet service
-              </span>
-            </li>
-            <li>
-              <span className="sheet__k">Ledger</span>
-              <span className="sheet__v">
-                every payment and every refusal, each linking to the chain
-              </span>
-            </li>
-          </ul>
-          <pre className="sheet__code">{`POST /api/paid/market-intel
-x-agent-token: stp_…
-← 402  { "price": 40000, "payee": "4Nd1…" }
-POST /api/agents/<id>/authorize
-← 200  { "header": "<payment>" }
-← 200  { "output": {…}, "receipt": {…} }`}</pre>
-          <p className="sheet__note">
-            Three calls, two services, no account anywhere. The vendor checks the chain before it
-            answers, so the receipt is the payment.
-          </p>
-          <div className="sheet__stamp">
-            <span className="sheet__stamp-label">Ready to issue</span>
-            <span className="sheet__stamp-note">no card · no signup · devnet only</span>
-          </div>
-        </aside>
+        <HeroDial />
       </section>
 
       <Reveal className="problem">

@@ -12,7 +12,7 @@ import { RunsTable } from './RunsTable';
 import { RunSteps } from './RunSteps';
 import { StatusStrip } from './StatusStrip';
 import type { Run, StateResponse } from '../types';
-import { shortAddress } from '../types';
+import { shortAddress, usd } from '../types';
 
 const DEFAULT_GOAL =
   'Should we launch usage-based pricing for our AI observability product, and at what price?';
@@ -313,7 +313,38 @@ export default function Console({
 
       <div className="deck deck--dash">
         <div className="dash-main">
-          {!isDemo && active && (
+          {readOnly && active && (
+            <section className="card">
+              <div className="card__head">
+                <h2 className="card__title">Shared view</h2>
+                <span className="card__note">read only</span>
+              </div>
+              <p className="wire__note">
+                You are looking at <strong>{active.name}</strong> without its key. You can see what it
+                bought and what it cost. You cannot spend, change a limit, or see the key.
+              </p>
+              <dl className="facts facts--foot">
+                <div>
+                  <dt>Spent today</dt>
+                  <dd>{usd(data.spentToday ?? 0)}</dd>
+                </div>
+                <div>
+                  <dt>Balance</dt>
+                  <dd>{usd(snapshot?.agent.tokensRaw ?? 0)}</dd>
+                </div>
+                <div>
+                  <dt>Purchases</dt>
+                  <dd>{ledger.filter((entry) => entry.decision === 'settled').length}</dd>
+                </div>
+                <div>
+                  <dt>Refused</dt>
+                  <dd>{refusedCount}</dd>
+                </div>
+              </dl>
+            </section>
+          )}
+
+          {!isDemo && active && !readOnly && (
             <StartPanel
               agent={active}
               baseUrl={baseUrl}
@@ -323,7 +354,7 @@ export default function Console({
             />
           )}
 
-          {isDemo && (
+          {isDemo && !readOnly && (
           <section className="card">
             <div className="card__head">
               <h2 className="card__title">Job</h2>
