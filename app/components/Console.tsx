@@ -373,7 +373,7 @@ export default function Console({
               snapshot={snapshot}
               baseUrl={baseUrl}
               readOnly={readOnly}
-              onFund={() => void fundAgent()}
+              onFund={isDemo ? () => void fundAgent() : undefined}
               onAllowlist={(list) => void applyAllowlist(list)}
               funding={busy !== null}
             />

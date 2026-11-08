@@ -44,7 +44,10 @@ function Clock({ since }: { since: string }) {
     const timer = setInterval(() => setNow(Date.now()), 200);
     return () => clearInterval(timer);
   }, []);
-  return <span className="runprogress__clock mono">{((now - Date.parse(since)) / 1000).toFixed(1)}s</span>;
+  // The timestamp comes from the server, so a small clock difference can make
+  // this negative for a moment. Never show a person "-0.1s".
+  const elapsed = Math.max(0, (now - Date.parse(since)) / 1000);
+  return <span className="runprogress__clock mono">{elapsed.toFixed(1)}s</span>;
 }
 
 /**

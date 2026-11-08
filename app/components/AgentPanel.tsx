@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { ChainSnapshot, PublicAgent } from '../types';
 import { shortAddress, usd } from '../types';
+import { agentPrompt } from '@/lib/prompt';
 
 interface Props {
   agent: PublicAgent;
@@ -43,18 +44,7 @@ export function AgentPanel({ agent, snapshot, baseUrl, readOnly, onFund, funding
   const ownerUrl = `${origin}/app?token=${agent.token}`;
   const viewUrl = `${origin}/app?view=${agent.viewToken}`;
 
-  const prompt = `Add a remote MCP server called "stipend" to my MCP configuration.
-
-URL: ${origin}/api/mcp
-Transport: streamable HTTP
-Header: Authorization: Bearer ${agent.token}
-
-Nothing to install and no file to download. It provides four tools: agent_status,
-buy_signals, buy_notes, buy_brief.
-Call agent_status first when you are unsure about budget. Use buy_signals when I ask what
-people are currently saying about a topic. Each paid call costs a few cents from my agent
-wallet and is capped by a policy I control; if a call is refused, do not retry it — report
-the refusal reason instead.`;
+  const prompt = agentPrompt({ origin, token: agent.token });
 
   const config = `{
   "mcpServers": {
@@ -223,10 +213,12 @@ const { output, receipt } = await paid.json();`;
         </div>
       )}
 
-      {!readOnly && (
+      {/* Funding lives in the setup steps on a personal agent's page, so this
+          button only appears where it is the only way to fund (the demo). */}
+      {!readOnly && onFund && (
         <div className="agentpanel__fund">
-          <button className="key key--go key--wide" onClick={onFund} disabled={funding || !onFund}>
-            {funding ? 'Funding…' : 'Add 25 dUSD'}
+          <button className="key key--go key--wide" onClick={onFund} disabled={funding}>
+            {funding ? 'Adding…' : 'Add 25 dUSD'}
           </button>
           <p className="agentpanel__fundnote">
             Mints demo stablecoin from the treasury into this agent&apos;s wallet. It lands in the
