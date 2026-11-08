@@ -241,8 +241,6 @@ The console prints which engine ran on every step: `fetched from the live source
 | `/docs` (live and in-app) | 10 pages: introduction, get started, how payments work, integration, use cases, best practices, tools, HTTP API, policy, troubleshooting |
 | [docs/MCP.md](docs/MCP.md) | the MCP server: install, tools, verification |
 | [DEPLOY.md](DEPLOY.md) | hosting: the storage seam, env vars, why serverless needs Redis |
-| [docs/SUBMISSION.md](docs/SUBMISSION.md) | the submission writeup |
-| [docs/DEMO.md](docs/DEMO.md) | the demo script, spoken |
 | [docs7/](docs7/README.md) | the Docs7 site source and how to publish it |
 | [PRODUCT.md](PRODUCT.md) | product truth: users, positioning, principles |
 | [.audit/](.audit/) | the build trail: spec, tickets, decisions and evidence |
