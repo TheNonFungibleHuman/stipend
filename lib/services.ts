@@ -1,4 +1,5 @@
 import { complete, llmConfigured, llmLastError } from './llm';
+import { VENDOR_SYSTEM_RULE, refusedByModel } from './guard';
 import { fetchSignals, type Signal } from './vendors/signals';
 
 /**
@@ -105,6 +106,7 @@ export async function runService(
     if (llmConfigured()) {
       const result = await complete({
         system:
+          VENDOR_SYSTEM_RULE + ' ' +
           'You are a research analyst. Given real discussion threads, return 3-4 short bullets of ' +
           'decision-grade insight for a founder. No preamble, no headings, no markdown bold. ' +
           'Each bullet under 22 words. Reference the strongest evidence by name.',
@@ -113,7 +115,7 @@ export async function runService(
           .join('\n')}\n\nWrite the bullets.`,
         maxTokens: 400,
       });
-      if (result) {
+      if (result && !refusedByModel(result.text)) {
         return {
           serviceId,
           output: { notes: bulletise(result.text), signalCount: signals.length },
@@ -138,6 +140,7 @@ export async function runService(
     if (llmConfigured()) {
       const result = await complete({
         system:
+          VENDOR_SYSTEM_RULE + ' ' +
           'You write one-page memos for operators. Plain prose, 120 words max, no markdown, no ' +
           'preamble. Open with the recommendation, then the reasoning, then the risk.',
         user:
@@ -148,7 +151,7 @@ export async function runService(
           'Write the memo.',
         maxTokens: 500,
       });
-      if (result) {
+      if (result && !refusedByModel(result.text)) {
         return {
           serviceId,
           output: { memo: result.text },

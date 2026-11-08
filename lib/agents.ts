@@ -3,7 +3,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Keypair, PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
-import { DEFAULT_POLICY, DEVNET_DIR, type Policy } from './config';
+import { DEFAULT_POLICY, type Policy } from './config';
+import { readDocument, writeDocument } from './persist';
 
 /**
  * Agents are first-class records, not a hardcoded keypair. Creating one is the
@@ -44,32 +45,16 @@ export interface PublicAgent {
   tokensRaw?: number;
 }
 
-const FILE = path.join(DEVNET_DIR, 'agents.json');
-
 const globalForAgents = globalThis as unknown as {
   __stipendAgents?: AgentRecord[];
   __stipendAgentsLock?: Promise<unknown>;
 };
 
-async function read(): Promise<AgentRecord[]> {
-  try {
-    const raw = await fs.readFile(FILE, 'utf8');
-    const parsed = JSON.parse(raw) as { agents?: AgentRecord[] };
-    return Array.isArray(parsed.agents) ? parsed.agents : [];
-  } catch {
-    return [];
-  }
-}
-
-async function write(agents: AgentRecord[]): Promise<void> {
-  await fs.mkdir(DEVNET_DIR, { recursive: true });
-  await fs.writeFile(FILE, JSON.stringify({ agents }, null, 2), 'utf8');
-  globalForAgents.__stipendAgents = agents;
-}
 
 export async function allAgents(): Promise<AgentRecord[]> {
   if (!globalForAgents.__stipendAgents) {
-    const records = await read();
+    const stored = await readDocument<{ agents?: AgentRecord[] }>('agents', {});
+    const records = Array.isArray(stored.agents) ? stored.agents : [];
     // Records written before view tokens existed still need a share key.
     let migrated = false;
     for (const record of records) {
@@ -78,7 +63,7 @@ export async function allAgents(): Promise<AgentRecord[]> {
         migrated = true;
       }
     }
-    if (migrated) await write(records);
+    if (migrated) await writeDocument('agents', { agents: records });
     globalForAgents.__stipendAgents = records;
   }
   return globalForAgents.__stipendAgents;
@@ -139,7 +124,7 @@ export async function createAgent(input: {
       createdAt: new Date().toISOString(),
       demo: input.demo,
     };
-    await write([...agents, record]);
+    await writeDocument('agents', { agents: [...agents, record] });
     return record;
   });
 }
@@ -155,7 +140,7 @@ export async function setPolicy(id: string, patch: Partial<Policy>): Promise<Pol
       allowlist: patch.allowlist ?? agents[index].policy.allowlist,
     };
     agents[index] = { ...agents[index], policy: next };
-    await write([...agents]);
+    await writeDocument('agents', { agents: [...agents] });
     return next;
   });
 }

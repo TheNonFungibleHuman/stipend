@@ -1,5 +1,5 @@
-import fs from 'node:fs/promises';
-import { DEFAULT_POLICY, DEVNET_DIR, LEDGER_FILE, STATE_FILE, type Policy } from './config';
+import { DEFAULT_POLICY, type Policy } from './config';
+import { readDocument, writeDocument } from './persist';
 
 export interface PersistedState {
   mint: string | null;
@@ -38,23 +38,6 @@ const defaultState = (): PersistedState => ({
   bootstrapCount: 0,
 });
 
-async function ensureDir(): Promise<void> {
-  await fs.mkdir(DEVNET_DIR, { recursive: true });
-}
-
-async function readJson<T>(file: string, fallback: T): Promise<T> {
-  try {
-    const raw = await fs.readFile(file, 'utf8');
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-async function writeJson(file: string, value: unknown): Promise<void> {
-  await ensureDir();
-  await fs.writeFile(file, JSON.stringify(value, null, 2), 'utf8');
-}
 
 const globalForStore = globalThis as unknown as {
   __stipendState?: PersistedState;
@@ -64,7 +47,7 @@ const globalForStore = globalThis as unknown as {
 
 export async function getState(): Promise<PersistedState> {
   if (!globalForStore.__stipendState) {
-    globalForStore.__stipendState = { ...defaultState(), ...(await readJson(STATE_FILE, {})) };
+    globalForStore.__stipendState = { ...defaultState(), ...(await readDocument('state', {})) };
   }
   return globalForStore.__stipendState;
 }
@@ -73,13 +56,13 @@ export async function patchState(patch: Partial<PersistedState>): Promise<Persis
   const current = await getState();
   const next = { ...current, ...patch };
   globalForStore.__stipendState = next;
-  await writeJson(STATE_FILE, next);
+  await writeDocument('state', next);
   return next;
 }
 
 export async function getLedger(): Promise<LedgerEntry[]> {
   if (!globalForStore.__stipendLedger) {
-    globalForStore.__stipendLedger = await readJson<LedgerEntry[]>(LEDGER_FILE, []);
+    globalForStore.__stipendLedger = await readDocument<LedgerEntry[]>('ledger', []);
   }
   return globalForStore.__stipendLedger;
 }
@@ -89,12 +72,12 @@ export async function appendLedger(entry: LedgerEntry): Promise<void> {
   ledger.unshift(entry);
   // The demo cares about the last few hundred calls; the file should not grow forever.
   if (ledger.length > 300) ledger.length = 300;
-  await writeJson(LEDGER_FILE, ledger);
+  await writeDocument('ledger', ledger);
 }
 
 export async function clearLedger(): Promise<void> {
   globalForStore.__stipendLedger = [];
-  await writeJson(LEDGER_FILE, []);
+  await writeDocument('ledger', []);
 }
 
 /** Serialises bootstraps so two clicks cannot race to create two mints. */

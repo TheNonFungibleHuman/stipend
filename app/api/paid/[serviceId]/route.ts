@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { agentByToken } from '@/lib/agents';
 import { PAYMENT_HEADER, serviceById } from '@/lib/config';
+import { allowModelCall, allowVendorCall, callerIdentity, reviewQuery } from '@/lib/guard';
 import { runService } from '@/lib/services';
 import { getState } from '@/lib/store';
 import { verifyPayment } from '@/lib/verify';
 import { wallets } from '@/lib/wallets';
 
 export const dynamic = 'force-dynamic';
+// Model-backed vendors can take ~10s; give the function room on serverless.
+export const maxDuration = 60;
 
 interface PaymentProof {
   v: number;
@@ -61,11 +64,41 @@ export async function POST(request: Request, { params }: { params: Promise<{ ser
     return NextResponse.json({ error: 'unknown agent token' }, { status: 401 });
   }
 
+  // Guardrails run before any challenge is issued, so a blocked request costs
+  // nothing — and the model behind the vendor is never reached.
+  const identity = callerIdentity(request, token);
+  if (!(await allowVendorCall(identity))) {
+    return NextResponse.json(
+      { error: 'rate limited', reason: 'too many calls from this caller in the last hour' },
+      { status: 429 },
+    );
+  }
+
+  const scope = reviewQuery(body.query ?? '');
+  if (!scope.allowed) {
+    return NextResponse.json(
+      { error: 'out of scope', code: scope.code, reason: scope.reason },
+      { status: 400 },
+    );
+  }
+
   const challenge = (reason: string) =>
     NextResponse.json(
       { error: 'payment required', reason, accepts },
       { status: 402, headers: { 'x-payment-required': 'exact', 'cache-control': 'no-store' } },
     );
+
+  // A model-backed service is metered separately from cheap calls, and only on
+  // the un-paid challenge — the paid retry is already covered by the same run.
+  if (!header && definition.id !== 'market-intel' && !(await allowModelCall(identity))) {
+    return NextResponse.json(
+      {
+        error: 'rate limited',
+        reason: 'this caller has reached the hourly limit for model-backed vendors',
+      },
+      { status: 429 },
+    );
+  }
 
   if (!header) return challenge('no payment attached');
 

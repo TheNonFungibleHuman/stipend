@@ -4,6 +4,8 @@ import { listRuns, startRun } from '@/lib/agent';
 import { canMutate } from '@/lib/agents';
 
 export const dynamic = 'force-dynamic';
+// Model-backed vendors can take ~10s; give the function room on serverless.
+export const maxDuration = 60;
 
 const schema = z.object({
   goal: z.string().min(3).max(400),

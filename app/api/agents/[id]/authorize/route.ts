@@ -11,6 +11,8 @@ import { appendLedger, getLedger, getState } from '@/lib/store';
 import { wallets } from '@/lib/wallets';
 
 export const dynamic = 'force-dynamic';
+// Model-backed vendors can take ~10s; give the function room on serverless.
+export const maxDuration = 60;
 
 const schema = z.object({
   serviceId: z.string().min(1).max(64),
