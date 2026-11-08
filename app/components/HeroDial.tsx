@@ -51,7 +51,11 @@ export function HeroDial() {
     // Without this the browser starts a text selection and the drag fights it.
     event.preventDefault();
     drag.current = { x: event.clientX };
-    dialRef.current?.setPointerCapture(event.pointerId);
+    try {
+      dialRef.current?.setPointerCapture(event.pointerId);
+    } catch {
+      /* synthetic pointers cannot be captured; the drag still works */
+    }
   };
 
   const onPointerMove = (event: React.PointerEvent) => {

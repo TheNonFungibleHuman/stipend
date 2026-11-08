@@ -160,6 +160,29 @@ Full guide: [docs/MCP.md](docs/MCP.md).
 
 A keyed link sees only its own agent. Mutations require the owner key; a view key gets `403`.
 
+A shared link opens a **Shared view**: what the agent bought, what it cost, how much is left today,
+and nothing else. No keys, no controls, no way to spend.
+
+## Payees
+
+An agent starts able to pay any vendor in the catalogue. You can narrow that to a list — one entry
+per line, either a vendor id or a **wallet address**:
+
+```
+market-intel
+6zWb61QQ4b3Av5eMRvHh6dTyYxyr2J1WKKq8zU1ESM6F
+```
+
+The list is checked in the policy, next to the caps, before anything is signed. Empty means no
+restriction. Because an entry can be an address, the same list works for vendors you run yourself,
+not just the ones in this repo.
+
+## Landing page
+
+The hero is the product rather than a picture of it: drag the dial to pick a price, press pay, and
+the same decision function the wallet service uses runs in front of you. Under the cap you get a
+receipt; over it you get a refusal and nothing moves.
+
 ## Guardrails and key safety
 
 The model key is server-only and worth protecting, so there are four layers:
