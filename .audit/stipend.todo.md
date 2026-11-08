@@ -42,9 +42,21 @@ Status: 4 Build (T5 next)
   5. Top-ups were invisible; they are now `funded` ledger rows.
   6. Scroll reveals hid all content below the hero until JS ran — sections are visible in the
      server HTML and only hide after mount.
+- 2026-11-08 12:10 **Model key wired (operator-supplied).** `DEEPSEEK_API_KEY` in `.env`; verified
+  `engine=model model=deepseek-chat` on the summariser and brief writer, and the memo is model
+  prose citing the threads by name.
+- 2026-11-08 12:15 **Synthetic dataset removed.** The signal vendor now fetches live public
+  discussion (HN Algolia) at call time, derives its own queries from the goal, and reports
+  `engine=fetch source=live` with 6 real results; a cached snapshot is served only when the source
+  is unreachable and the step then says `cached`. FAQ, landing footer and README updated to match.
+- 2026-11-08 12:20 UI fixes from review: ledger rebuilt as 5 columns so the explorer receipt is
+  always visible (it was being clipped); top-up moved out of the header into the Agent panel as a
+  real button with a consequence note; model name shown in the console header; `.switch` controls
+  restyled to read as buttons.
 - 2026-11-08 note: `pnpm dev` cannot hydrate on this machine (a proxy blocks Next's HMR websocket);
   every visual verification runs against `next build && next start`.
 
 ## Next
-- T5: README + submission writeup + 90-second demo script.
-- Then: submission, video, and a fresh-agent run for the final screenshots.
+- T5: submission writeup + 90-second demo script (README done).
+- Stretch: MCP server so an existing agent (Claude Code, Cursor, opencode, antigravity) can call the
+  paid services through Stipend as a tool.
