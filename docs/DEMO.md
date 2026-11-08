@@ -81,11 +81,18 @@ priced?" — let it call the tool.]*
 
 > "And there it is — in my console, with the price and the receipt. That's the whole loop."
 
-## 8 · Close — 10s
+## 8 · Close — 15s
 
 > "So: your agent gets a budget, not your keys. Every purchase is capped, every refusal is free, and
-> every payment has a receipt. It's running on devnet right now, so it's test money — same code on
-> mainnet with real USDC. Thanks for watching."
+> every payment has a receipt. It's running on devnet right now, so it's all test money."
+
+> "Next is mainnet — the same flow, but the wallet holds real USDC instead of my demo coin. And then
+> real vendors: search, OCR, document parsing, market data — anything that answers with a price.
+> The payee list already takes any wallet address, so adding one is a config change, not a rebuild.
+> Thanks for watching."
+
+*[Optional: scroll to the limits card so "per-call cap" and "daily budget" are on screen while you
+say the last line.]*
 
 ---
 
@@ -118,3 +125,13 @@ buying**. That second one is the one a judge remembers, so it goes last.
 - "It never touches your card."
 - "The cap is checked before the signature, so a refusal costs nothing."
 - "Every purchase has a receipt anyone can open."
+
+## 30-second cut
+
+Landing: pay $0.04, refuse $5.00 → **Run pipeline**, three receipts land → click one → **Test refusal**
+→ "devnet today, USDC and real vendors next."
+
+## If you only change one thing from the first recording
+
+Re-record the Run pipeline segment. The old build sat on "no run yet" while the button said RUNNING
+and then dropped every step in at once; that is fixed, and steps now land at roughly 2s, 4s and 7s.

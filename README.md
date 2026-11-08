@@ -234,16 +234,6 @@ docs7/                         the public docs site source (Docs7)
 The console prints which engine ran on every step: `fetched from the live source`,
 `computed by DeepSeek V4.1 Flash`, or `computed deterministically`. It never claims more than it did.
 
-## Why this fits the hackathon's tracks
-
-- **Top 3** — uses Solana for something only Solana does: sub-cent per-purchase settlement that card
-  rails cannot process, with receipts verifiable by a third party.
-- **AI track** — "agents that hold a wallet and act on-chain, with spending limits" and "machine
-  payments, AI services paid per request", implemented end to end rather than described.
-- **DeFi track** — real value movement, a stablecoin, and a payment rail with per-call economics.
-- **Best beginner** — no Rust, no Anchor, no custom program: the whole thing is TypeScript over
-  primitives that already exist on devnet.
-
 ## Documentation
 
 | Where | What |
@@ -252,20 +242,37 @@ The console prints which engine ran on every step: `fetched from the live source
 | [docs/MCP.md](docs/MCP.md) | the MCP server: install, tools, verification |
 | [DEPLOY.md](DEPLOY.md) | hosting: the storage seam, env vars, why serverless needs Redis |
 | [docs/SUBMISSION.md](docs/SUBMISSION.md) | the submission writeup |
-| [docs/DEMO.md](docs/DEMO.md) | 90-second demo shot list |
+| [docs/DEMO.md](docs/DEMO.md) | the demo script, spoken |
 | [docs7/](docs7/README.md) | the Docs7 site source and how to publish it |
 | [PRODUCT.md](PRODUCT.md) | product truth: users, positioning, principles |
 | [.audit/](.audit/) | the build trail: spec, tickets, decisions and evidence |
 
-## Honest limits
+## Where this goes next
 
-- The instance holds the agent's keypair so the flow works without a browser extension. In production
-  the key lives where the agent runs and the same key gates a signing service or a policy program.
-- `dUSD` is a devnet mint with no value.
-- No custom on-chain program. This machine has no Rust toolchain, so the design uses SPL Token, the
-  v4 Memo program and System transfers.
-- The demo instance is public: anyone can spend the demo agent's daily budget, which is why the caps
-  default low.
+**Mainnet.** The mechanism does not change — the token does. `dUSD` becomes USDC on Solana, the
+treasury stops minting, and funding an agent becomes "send USDC to this address". Fees either come
+from a little SOL in the agent's wallet or from a relayer that pays as fee-payer, so the agent only
+ever holds stablecoin.
+
+**Real vendors.** The three services in this repo are ours, written to demonstrate a $0.04 → $0.06 →
+$0.08 chain and a $5.00 refusal. The product only becomes useful with vendors that exist: search,
+page rendering, OCR and document parsing, market and filings data, image generation, transcription,
+email and SMS. Each is one endpoint that answers with a 402 and one wallet address; the payee list
+already accepts an arbitrary address, so a vendor can be added without touching the policy code.
+
+**Vendor-side tooling.** A small package a vendor drops in front of an existing API: it issues the
+402, verifies the balance delta on chain, and returns the response. Today we wrote that by hand three
+times.
+
+**Publishing the MCP server.** One file today, served from the deployment. A published package means
+`npx` fetches it, so an agent can install it without anyone downloading anything.
+
+**Key custody.** The instance holds agent keypairs so the flow works without a browser extension.
+Next is the agent holding its own key and presenting only a policy-scoped signing request — the same
+policy function, moved into the agent's process.
+
+**Per-vendor limits.** Caps are global today. Per-payee budgets are the obvious next step once the
+catalogue is real: $2/day to this vendor, $10/day to that one.
 
 ## License
 
