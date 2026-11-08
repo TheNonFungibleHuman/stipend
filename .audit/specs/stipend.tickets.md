@@ -27,7 +27,28 @@ Spec: .audit/specs/stipend.md
 - surface: `app/`
 - acceptance: `impeccable detect app` reports zero findings, and `desktop.png` (1440) plus
   `mobile.png` (390) exist in `.impeccable/review/` and show the built dashboard.
-- status: open
+- status: done
+
+## T7 — Landing page at `/`
+- blocked by: T2
+- surface: `app/page.tsx`
+- acceptance: a first-time visitor learns what this is, what it costs the seller, and presses one
+  of two working calls to action within one viewport.
+- status: done
+
+## T8 — Onboarding flow at `/start`
+- blocked by: T7 (shares the plate and card vocabulary)
+- surface: `app/start/page.tsx`, `app/components/Onboard.tsx`, `app/api/agents/*`
+- acceptance: naming an agent, setting both caps and creating it returns a wallet address and an
+  API token, and the console opens scoped to that agent.
+- status: done
+
+## T9 — Multi-agent registry and agent-scoped runs
+- blocked by: none
+- surface: `lib/agents.ts`, `lib/agent.ts`, `app/api/state/route.ts`
+- acceptance: two agents hold separate policies, balances and ledgers; the console switcher changes
+  which agent a run spends from.
+- status: done
 
 ## T4 — End-to-end settlement proof on devnet
 - blocked by: none (external: one-time treasury funding)

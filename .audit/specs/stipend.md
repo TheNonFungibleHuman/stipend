@@ -55,12 +55,13 @@ before it did any work, without an account or an API key.
 
 ## Acceptance
 
-- [ ] `pnpm typecheck` exits 0.
+- [x] `pnpm typecheck` exits 0.
 - [ ] `POST /api/run` produces three settled steps with distinct devnet signatures, each openable
       on explorer.solana.com.
 - [ ] Lowering the per-call cap to $0.05 and re-running produces a `refused` step whose reason
       names the cap, and no signature.
-- [ ] `impeccable detect` reports zero findings on `app/`.
+- [x] `impeccable detect` reports zero findings on `app/`.
 - [ ] Desktop (1440) and mobile (390) screenshots of the dashboard exist in `.impeccable/review/`.
+- [x] A visitor can create an agent from `/start` and land in the console scoped to it.
 - [ ] `node harness\dsh-build-command\spine-check.mjs --dir . --verbose` exits 0.
 - [ ] A judge who has never seen the repo can read the README and know what to click.
