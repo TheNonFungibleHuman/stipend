@@ -23,6 +23,7 @@ export interface RunStep {
   signature?: string;
   settleMs?: number;
   verifyMs?: number;
+  computeMs?: number;
   output?: unknown;
   engine?: 'fetch' | 'model' | 'deterministic';
   source?: 'live' | 'cached';

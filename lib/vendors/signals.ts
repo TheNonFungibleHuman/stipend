@@ -109,16 +109,21 @@ const CACHED: Signal[] = [
 
 export async function fetchSignals(goal: string): Promise<SignalResult> {
   const queries = queriesFor(goal);
-  const fetched: Signal[] = [];
   const failures: string[] = [];
 
-  for (const query of queries) {
-    try {
-      fetched.push(...(await search(query)));
-    } catch (error) {
-      failures.push(error instanceof Error ? error.message : String(error));
-    }
-  }
+  // Queries run concurrently: two sequential round trips were a full second of
+  // the run's latency for no benefit.
+  const batches = await Promise.all(
+    queries.map(async (query) => {
+      try {
+        return await search(query);
+      } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+        return [] as Signal[];
+      }
+    }),
+  );
+  const fetched = batches.flat();
 
   const seen = new Set<string>();
   const signals = fetched

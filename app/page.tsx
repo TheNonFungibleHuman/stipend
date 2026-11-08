@@ -41,9 +41,9 @@ export default function Landing() {
         <div className="plate__right">
           <span className="lamp lamp--live">devnet</span>
           <nav className="nav" aria-label="Main">
-            <Link className="nav__link" href="/docs">
+            <a className="nav__link" href="https://stipend.docs7.io" target="_blank" rel="noreferrer">
               Docs
-            </Link>
+            </a>
             <Link className="nav__link" href="#how-it-works">
               How it works
             </Link>

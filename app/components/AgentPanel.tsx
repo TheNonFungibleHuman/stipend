@@ -8,7 +8,6 @@ interface Props {
   agent: PublicAgent;
   snapshot?: ChainSnapshot;
   baseUrl: string;
-  mcpPath: string;
   readOnly?: boolean;
   onFund?: () => void;
   funding?: boolean;
@@ -35,7 +34,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 }
 
 /** Identity, funding, and the three ways to hand this agent to a real runtime. */
-export function AgentPanel({ agent, snapshot, baseUrl, mcpPath, readOnly, onFund, funding }: Props) {
+export function AgentPanel({ agent, snapshot, baseUrl, readOnly, onFund, funding }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [tab, setTab] = useState<'prompt' | 'config' | 'http'>('prompt');
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
@@ -44,13 +43,17 @@ export function AgentPanel({ agent, snapshot, baseUrl, mcpPath, readOnly, onFund
 
   const prompt = `Add a tool server called "stipend" to my MCP configuration.
 
-Transport: stdio
-Command: node
-Args: ["${mcpPath}"]
-Environment:
-  STIPEND_URL=${baseUrl}
-  STIPEND_AGENT_ID=${agent.id}
-  STIPEND_AGENT_TOKEN=${agent.token}
+1. Download the server first:
+   curl -fsSL ${origin}/stipend-mcp.mjs -o stipend-mcp.mjs
+
+2. Register it with the absolute path of the file you just saved:
+   Transport: stdio
+   Command: node
+   Args: ["<absolute path to stipend-mcp.mjs>"]
+   Environment:
+     STIPEND_URL=${baseUrl}
+     STIPEND_AGENT_ID=${agent.id}
+     STIPEND_AGENT_TOKEN=${agent.token}
 
 It provides four tools: agent_status, buy_signals, buy_notes, buy_brief.
 Call agent_status first when you are unsure about budget. Use buy_signals when I ask what
@@ -62,7 +65,7 @@ the refusal reason instead.`;
   "mcpServers": {
     "stipend": {
       "command": "node",
-      "args": ["${mcpPath.replace(/\\/g, '\\\\')}"],
+      "args": ["/absolute/path/to/stipend-mcp.mjs"],
       "env": {
         "STIPEND_URL": "${baseUrl}",
         "STIPEND_AGENT_ID": "${agent.id}",

@@ -23,6 +23,7 @@ export interface RunStep {
   signature?: string;
   settleMs?: number;
   verifyMs?: number;
+  computeMs?: number;
   output?: unknown;
   engine?: 'fetch' | 'model' | 'deterministic';
   source?: 'live' | 'cached';
@@ -195,7 +196,9 @@ export interface StartRunInput {
  * when the response is sent, and the poll can land on another instance that has
  * never heard of the run. Awaiting is slower but correct everywhere.
  */
-export async function startRun(input: StartRunInput): Promise<Run> {
+export type RunEmit = (run: Run) => void;
+
+export async function startRun(input: StartRunInput, emit?: RunEmit): Promise<Run> {
   const agent = await pickAgent(input.agentId);
   const run: Run = {
     id: randomUUID().slice(0, 8),
@@ -214,7 +217,7 @@ export async function startRun(input: StartRunInput): Promise<Run> {
   runs().set(run.id, run);
   await persistRuns();
 
-  await execute(run, agent, input.baseUrl).catch((error) => {
+  await execute(run, agent, input.baseUrl, emit).catch((error) => {
     run.status = 'error';
     run.error = error instanceof Error ? error.message : String(error);
     run.endedAt = new Date().toISOString();
@@ -224,7 +227,12 @@ export async function startRun(input: StartRunInput): Promise<Run> {
   return run;
 }
 
-async function execute(run: Run, agent: AgentRecord, baseUrl: string): Promise<void> {
+async function execute(
+  run: Run,
+  agent: AgentRecord,
+  baseUrl: string,
+  emit?: RunEmit,
+): Promise<void> {
   await bootstrap();
   const state = await getState();
   if (!state.mint) throw new Error('devnet is not ready');
@@ -239,9 +247,15 @@ async function execute(run: Run, agent: AgentRecord, baseUrl: string): Promise<v
 
   run.policy = agent.policy;
 
-  for (const [index, serviceId] of PLAN[run.mode].entries()) {
+  const currentBalance = await tokenBalanceOf(mint, agentKeypair.publicKey);
+
+  const performStep = async (
+    index: number,
+    serviceId: string,
+    context: unknown,
+  ): Promise<void> => {
     const definition = serviceById(serviceId);
-    if (!definition) continue;
+    if (!definition) return;
 
     const step: RunStep = {
       index,
@@ -253,13 +267,15 @@ async function execute(run: Run, agent: AgentRecord, baseUrl: string): Promise<v
       startedAt: new Date().toISOString(),
     };
     run.steps.push(step);
+    run.steps.sort((a, b) => a.index - b.index);
+    emit?.(run);
 
-    // Each step consumes whatever the previous step bought.
-    const previous = run.steps[index - 1];
-    const context = previous?.output ?? null;
+    // Each step consumes whatever the previous step bought. Steps that share the
+    // same input can run at once, which is how the two model calls overlap.
 
-    // The agent's live balance is read fresh each step: it is the real limit.
-    let balance = await tokenBalanceOf(mint, agentKeypair.publicKey);
+    // Balance is read once before the loop and decremented as we spend; a fresh
+    // RPC read per step cost ~200ms each and told us nothing new.
+    let balance = currentBalance;
 
     try {
       step.status = 'settling';
@@ -285,12 +301,14 @@ async function execute(run: Run, agent: AgentRecord, baseUrl: string): Promise<v
           source?: 'live' | 'cached';
           note?: string;
           model?: string;
+          computeMs?: number;
         };
         step.status = 'settled';
         step.quote = result.quote;
         step.signature = result.signature;
         step.settleMs = result.settleMs;
         step.verifyMs = result.verifyMs;
+        step.computeMs = payload.computeMs;
         step.output = payload.output;
         step.engine = payload.engine;
         step.model = payload.model;
@@ -359,6 +377,24 @@ async function execute(run: Run, agent: AgentRecord, baseUrl: string): Promise<v
       // Persist after every step: if the function is killed mid-run, the record
       // shows how far it got instead of hanging in "running".
       await persistRuns();
+      emit?.(run);
+    }
+  };
+
+  const plan = PLAN[run.mode];
+
+  if (run.mode === 'normal') {
+    // Fetch the signals first: both model steps read them, and running them at
+    // the same time removes ~3s of dead waiting from the run.
+    await performStep(0, plan[0], null);
+    const signals = run.steps.find((step) => step.index === 0)?.output ?? null;
+    await Promise.all([performStep(1, plan[1], signals), performStep(2, plan[2], signals)]);
+  } else {
+    // Rogue mode is deliberately sequential: each step reacts to the last.
+    let context: unknown = null;
+    for (const [index, serviceId] of plan.entries()) {
+      await performStep(index, serviceId, context);
+      context = run.steps.find((step) => step.index === index)?.output ?? null;
     }
   }
 

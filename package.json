@@ -6,6 +6,7 @@
   "description": "Budget-enforced Solana wallets for AI agents that pay per API call.",
   "scripts": {
     "dev": "next dev -p 4310",
+    "prebuild": "node tools/sync-mcp.mjs",
     "build": "next build",
     "start": "next start -p 4310",
     "typecheck": "tsc --noEmit",

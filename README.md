@@ -121,7 +121,7 @@ Claude Code, Cursor, opencode or any tool-capable agent, and it configures itsel
   "mcpServers": {
     "stipend": {
       "command": "node",
-      "args": ["/path/to/mcp/stipend-mcp.mjs"],
+      "args": ["/path/to/stipend-mcp.mjs"],
       "env": {
         "STIPEND_URL": "https://stipend-delta.vercel.app",
         "STIPEND_AGENT_ID": "<agent id>",

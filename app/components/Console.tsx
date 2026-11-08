@@ -20,12 +20,10 @@ export default function Console({
   initialAgentId,
   initialToken,
   initialView,
-  mcpPath,
 }: {
   initialAgentId?: string;
   initialToken?: string;
   initialView?: string;
-  mcpPath: string;
 }) {
   const [readOnly, setReadOnly] = useState(Boolean(initialView));
   const keyed = Boolean(initialToken || initialView);
@@ -93,6 +91,11 @@ export default function Console({
     return () => clearInterval(timer);
   }, [run?.id, run?.status, loadState]);
 
+  /**
+   * The run streams back as newline-delimited JSON, so each step renders the
+   * moment it changes. That is the difference between "something is happening"
+   * and a spinner that sits there for twelve seconds.
+   */
   const startRun = async (mode: 'normal' | 'rogue') => {
     setBusy(mode);
     setActionError(null);
@@ -102,9 +105,38 @@ export default function Console({
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ goal, mode, agentId }),
       });
-      const json = (await response.json()) as { run?: Run; error?: string };
-      if (json.error || !json.run) throw new Error(json.error ?? 'run did not start');
-      setRun(json.run);
+
+      if (!response.ok || !response.body) {
+        const json = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(json.error ?? `run rejected (${response.status})`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let index: number;
+        while ((index = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, index).trim();
+          buffer = buffer.slice(index + 1);
+          if (!line) continue;
+
+          const event = JSON.parse(line) as
+            | { type: 'run'; run: Run }
+            | { type: 'done'; run: Run }
+            | { type: 'error'; message: string };
+
+          if (event.type === 'error') throw new Error(event.message);
+          if (event.type === 'run' || event.type === 'done') setRun(event.run);
+        }
+      }
+
+      await loadState(true);
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : 'run did not start');
     } finally {
@@ -276,7 +308,6 @@ export default function Console({
               agent={active}
               snapshot={snapshot}
               baseUrl={baseUrl}
-              mcpPath={mcpPath}
               readOnly={readOnly}
               onFund={() => void fundAgent()}
               funding={busy !== null}

@@ -96,7 +96,9 @@ export async function runService(
     };
   }
 
-  const signals = signalsFrom(context.intel) ?? (await fetchSignals(context.query)).signals;
+  const allSignals = signalsFrom(context.intel) ?? (await fetchSignals(context.query)).signals;
+  // Four threads is enough context for a short answer and materially faster.
+  const signals = allSignals.slice(0, 4);
   const sourceNote =
     (context.intel as { source?: 'live' | 'cached' } | null | undefined)?.source === 'cached'
       ? 'cached snapshot'
@@ -107,7 +109,7 @@ export async function runService(
       const result = await complete({
         system:
           VENDOR_SYSTEM_RULE + ' ' +
-          'You are a research analyst. Given real discussion threads, return 3-4 short bullets of ' +
+          'You are a research analyst. From these threads, return 3 short bullets. ' +
           'decision-grade insight for a founder. No preamble, no headings, no markdown bold. ' +
           'Each bullet under 22 words. Reference the strongest evidence by name.',
         user: `Goal: ${context.query}\n\nLive threads:\n${signals
@@ -141,7 +143,7 @@ export async function runService(
       const result = await complete({
         system:
           VENDOR_SYSTEM_RULE + ' ' +
-          'You write one-page memos for operators. Plain prose, 120 words max, no markdown, no ' +
+          'Write a 100-word operator memo in plain prose: recommendation, reasoning, risk. No ' +
           'preamble. Open with the recommendation, then the reasoning, then the risk.',
         user:
           `Goal: ${context.query}\n\nThreads:\n${signals

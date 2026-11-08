@@ -19,8 +19,14 @@ produced** — the money genuinely does not move.
 
 ## Install
 
-The server is a single file with no dependencies: `mcp/stipend-mcp.mjs`. It needs three
-environment variables from the console (Agent panel):
+The server is a single file with no dependencies. Download it from whichever deployment you are
+using — no clone required:
+
+```bash
+curl -fsSL https://stipend-delta.vercel.app/stipend-mcp.mjs -o stipend-mcp.mjs
+```
+
+It needs three environment variables from the console (Agent panel):
 
 ```bash
 STIPEND_URL=https://stipend-delta.vercel.app
@@ -35,7 +41,7 @@ claude mcp add stipend --scope project \
   --env STIPEND_URL=https://stipend-delta.vercel.app \
   --env STIPEND_AGENT_ID=<agent id> \
   --env STIPEND_AGENT_TOKEN=<token> \
-  -- node /absolute/path/to/mcp/stipend-mcp.mjs
+  -- node /absolute/path/to/stipend-mcp.mjs
 ```
 
 ### Any client with a JSON config (Cursor, opencode, Claude Desktop, DSH)
@@ -45,7 +51,7 @@ claude mcp add stipend --scope project \
   "mcpServers": {
     "stipend": {
       "command": "node",
-      "args": ["/absolute/path/to/mcp/stipend-mcp.mjs"],
+      "args": ["/absolute/path/to/stipend-mcp.mjs"],
       "env": {
         "STIPEND_URL": "https://stipend-delta.vercel.app",
         "STIPEND_AGENT_ID": "<agent id>",

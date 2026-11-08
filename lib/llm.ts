@@ -37,8 +37,12 @@ function provider(): ProviderConfig | null {
             // drawn from max_tokens, so a small budget comes back with empty
             // content and finish_reason "length". Floor it, and ask for low
             // effort on these short extraction tasks.
-            max_tokens: Math.max(maxTokens, 2_500),
-            reasoning_effort: 'low',
+            max_tokens: Math.max(maxTokens, 800),
+            // These vendors do short, structured extraction. Left in thinking
+            // mode, flash spends the whole token budget on reasoning and can
+            // return empty content (finish_reason "length"); with thinking off
+            // it answers the same questions in about a third of the time.
+            thinking: { type: 'disabled' },
             temperature: 0.3,
             messages: [
               { role: 'system', content: system },
@@ -54,7 +58,7 @@ function provider(): ProviderConfig | null {
         const choice = json.choices?.[0];
         const content = choice?.message?.content ?? '';
         if (!content.trim() && choice?.finish_reason === 'length') {
-          throw new Error('model hit the token ceiling before answering (reasoning used the budget)');
+          throw new Error('model hit the token ceiling before answering');
         }
         return content;
       },
