@@ -31,9 +31,19 @@ Press **Add 25 dUSD** in the Agent panel. That mints demo stablecoin from the tr
 agent's wallet, and it appears in the ledger as a `funded` row — money entering the account is as
 visible as money leaving it.
 
-## 4 · Run a task
+## 4 · Use it from your own agent
 
-In the console, press **Run pipeline**. The agent buys three services it does not control:
+This is the real path. Your own agent — Claude Code, Cursor, opencode, or anything that can add
+tools — buys through Stipend and pays from this agent's wallet. Your agent's page shows the three
+steps and a block of text to paste into it.
+
+Every purchase your agent makes appears in the ledger below, with the price and a link to the
+transaction on Solana.
+
+## 5 · Or try the demo agent
+
+The demo agent is a shared sandbox for seeing the flow without setting anything up. Press **Run
+pipeline** and it buys three services it does not control:
 
 | Step | Service | Price |
 | --- | --- | --- |
@@ -44,11 +54,12 @@ In the console, press **Run pipeline**. The agent buys three services it does no
 Each step is a real `402 → authorize → retry` handshake. When it finishes, the ledger has three
 receipts with explorer links, and the memo is on screen.
 
-## 5 · Prove the cap
+## 6 · Prove the cap
 
-Set the per-call cap to `$0.05` and run again. The `$0.04` call settles; the `$0.06` and `$0.08`
-calls are **refused** with the reason, and no signature is produced.
+Set the per-call cap to `$0.05` and run the demo again. The `$0.04` call settles; the `$0.06` and
+`$0.08` calls are **refused** with the reason, and no signature is produced. A refusal costs nothing
+because nothing moves.
 
-<Card title="Then connect your own agent" icon="plug" href="/integration">
-  Hand the agent to Claude Code, Cursor, opencode, or any tool-capable runtime.
+<Card title="What your agent can buy" icon="plug" href="/tools">
+  The four tools your agent gets, and what each one returns.
 </Card>
