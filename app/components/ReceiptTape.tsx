@@ -5,53 +5,57 @@ import { clockOf, explorerTx, shortAddress, usd } from '../types';
 
 export function ReceiptTape({ ledger }: { ledger: LedgerEntry[] }) {
   return (
-    <section className="panel tape">
-      <div className="panel__head">
-        <h2 className="panel__title">Settlement tape</h2>
-        <span className="panel__note">{ledger.length} records</span>
+    <section className="card">
+      <div className="card__head">
+        <h2 className="card__title">Service record</h2>
+        <span className="card__note">{ledger.length} entries</span>
       </div>
 
-      {ledger.length === 0 ? (
-        <p className="empty">
-          Nothing settled yet. Run a task — each row here is a devnet transaction you can open.
-        </p>
-      ) : (
-        <ol className="tape__list">
-          {ledger.slice(0, 14).map((entry) => {
-            const settled = entry.decision === 'settled';
-            return (
-              <li
-                key={entry.id}
-                className={`tape__row${settled ? '' : ` tape__row--${entry.decision}`}`}
-              >
-                <span className="tape__time mono">{clockOf(entry.at)}</span>
-                <span className="tape__svc">{entry.serviceName}</span>
-                <span className={`tape__amt mono ${settled ? 'tape__amt--out' : 'tape__amt--stop'}`}>
-                  {settled ? `−${usd(entry.price)}` : entry.decision === 'refused' ? 'refused' : 'error'}
-                </span>
-                {settled && entry.signature ? (
-                  <a
-                    className="tape__sig mono"
-                    href={explorerTx(entry.signature)}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={entry.signature}
-                  >
-                    {shortAddress(entry.signature, 4)} ↗
-                  </a>
-                ) : (
-                  <span className="tape__reason" title={entry.reason}>
-                    {entry.reason ?? '—'}
+      <div className="slip">
+        <div className="slip__head">
+          <h3 className="slip__title">Settlement tape</h3>
+          <span className="slip__note">devnet</span>
+        </div>
+
+        {ledger.length === 0 ? (
+          <p className="slip__empty">
+            Nothing printed yet. Run a task — each line here is a transaction you can open.
+          </p>
+        ) : (
+          <ol className="slip__list">
+            {ledger.slice(0, 14).map((entry) => {
+              const settled = entry.decision === 'settled';
+              return (
+                <li
+                  key={entry.id}
+                  className={`slip__row${settled ? '' : ` slip__row--${entry.decision}`}`}
+                >
+                  <span className="slip__time">{clockOf(entry.at)}</span>
+                  <span className="slip__svc">{entry.serviceName}</span>
+                  <span className={`slip__amt${settled ? '' : ' slip__amt--stop'}`}>
+                    {settled ? `−${usd(entry.price)}` : entry.decision === 'refused' ? 'refused' : 'error'}
                   </span>
-                )}
-                {settled && entry.settleMs !== undefined && (
-                  <span className="tape__ms mono">{entry.settleMs}ms</span>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-      )}
+                  {settled && entry.signature ? (
+                    <a
+                      className="slip__sig"
+                      href={explorerTx(entry.signature)}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={entry.signature}
+                    >
+                      {shortAddress(entry.signature, 4)} ↗
+                    </a>
+                  ) : (
+                    <span className="slip__reason" title={entry.reason}>
+                      {entry.reason ?? '—'}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
     </section>
   );
 }

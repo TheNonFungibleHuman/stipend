@@ -90,6 +90,7 @@ export interface ServiceDef {
 export interface StateResponse {
   ok: boolean;
   needsFunding?: boolean;
+  fixture?: boolean;
   treasuryAddress?: string;
   solBalance?: number;
   faucetUrl?: string;

@@ -13,6 +13,25 @@ export async function GET(request: Request) {
   const refresh = new URL(request.url).searchParams.get('refresh') === '1';
   const { treasury } = await wallets();
 
+  // Recorded session, for building and reviewing the interface without devnet.
+  if (process.env.STIPEND_FIXTURE === '1') {
+    const { fixtureLedger, fixtureRun, fixtureSnapshot } = await import('@/lib/fixture');
+    const ledger = fixtureLedger();
+    return NextResponse.json({
+      ok: true,
+      needsFunding: false,
+      fixture: true,
+      snapshot: fixtureSnapshot(),
+      policy: fixtureSnapshot().policy,
+      spentToday: ledger.filter((entry) => entry.decision === 'settled').reduce((s, e) => s + e.price, 0),
+      ledger,
+      services: SERVICES,
+      hostileService: HOSTILE_SERVICE,
+      llm: { configured: llmConfigured(), label: llmLabel() },
+      runs: [fixtureRun('normal')],
+    });
+  }
+
   try {
     const state = await getState();
     let snapshot = state.mint ? await liveSnapshot(refresh ? 0 : 1500) : await bootstrap();

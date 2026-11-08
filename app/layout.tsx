@@ -1,25 +1,22 @@
 import type { Metadata } from 'next';
-import { Instrument_Serif, Inter, JetBrains_Mono } from 'next/font/google';
+import { Archivo, Martian_Mono } from 'next/font/google';
 import './globals.css';
 
-const sans = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
-const serif = Instrument_Serif({
-  subsets: ['latin'],
-  weight: '400',
-  variable: '--font-serif',
-  display: 'swap',
-});
-const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' });
+/** Silkscreen plate face: labels, body, the operating legend. */
+const plate = Archivo({ subsets: ['latin'], variable: '--font-plate', display: 'swap' });
+
+/** Counter face: every monetary value, wide and mechanical like a price wheel. */
+const meter = Martian_Mono({ subsets: ['latin'], variable: '--font-meter', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'Stipend — agent budgets on Solana',
+  title: 'Stipend — a budget for your agent, on Solana',
   description:
-    'An AI agent with its own stablecoin wallet, a spending policy enforced before every signature, and receipts that settle on Solana in under a second.',
+    'An AI agent with its own wallet and a spending policy enforced before every signature. It buys what it needs, one call at a time, and the receipts settle on Solana in about half a second.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable}`}>
+    <html lang="en" className={`${plate.variable} ${meter.variable}`}>
       <body>{children}</body>
     </html>
   );

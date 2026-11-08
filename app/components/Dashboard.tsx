@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { BudgetMeter } from './BudgetMeter';
+import { useCallback, useEffect, useState } from 'react';
 import { Economics } from './Economics';
 import { FundingGate } from './FundingGate';
+import { HowItWorks } from './HowItWorks';
+import { MeterHead } from './MeterHead';
 import { PolicyCard } from './PolicyCard';
 import { ReceiptTape } from './ReceiptTape';
 import { RunLedger } from './RunLedger';
@@ -19,9 +20,6 @@ export default function Dashboard() {
   const [goal, setGoal] = useState(DEFAULT_GOAL);
   const [busy, setBusy] = useState<null | 'normal' | 'rogue'>(null);
   const [error, setError] = useState<string | null>(null);
-  const runRef = useRef<Run | null>(null);
-
-  runRef.current = run;
 
   const loadState = useCallback(async (refresh = false) => {
     try {
@@ -42,7 +40,7 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, [loadState]);
 
-  // Poll the active run fast enough that settlements look live, then stop.
+  // Poll the active run fast enough that settlements read as live, then stop.
   useEffect(() => {
     if (!run || run.status !== 'running') return;
     const id = run.id;
@@ -94,10 +92,10 @@ export default function Dashboard() {
 
   if (!data) {
     return (
-      <main className="shell">
+      <main className="cabinet">
         <div className="boot">
-          <span className="boot__pulse" />
-          Connecting to devnet…
+          <span className="boot__pulse" aria-hidden="true" />
+          Connecting to devnet
         </div>
       </main>
     );
@@ -118,72 +116,94 @@ export default function Dashboard() {
   const policy = data.policy ?? snapshot?.policy;
   const ledger = data.ledger ?? [];
   const running = run?.status === 'running';
+  const refusedCount = ledger.filter((entry) => entry.decision === 'refused').length;
+  const runPrice = (data.services ?? []).reduce((sum, service) => sum + service.price, 0);
 
   return (
-    <main className="shell">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand__mark" aria-hidden="true" />
-          <span className="brand__word">Stipend</span>
-          <span className="brand__tag">agent budgets on Solana</span>
+    <main className="cabinet">
+      <header className="plate">
+        <div className="plate__brand">
+          <span className="plate__serial">S-402</span>
+          <span className="plate__name">Stipend</span>
         </div>
-        <div className="topbar__meta">
-          <span className="pill pill--live">
-            <span className="pill__dot" /> devnet
-          </span>
-          <span className="pill mono" title={snapshot?.agent.address}>
+        <div className="plate__right">
+          <span className="lamp lamp--live">devnet</span>
+          {data.fixture && <span className="lamp lamp--warn">recorded session</span>}
+          <span className="plate__meta" title={snapshot?.agent.address}>
             agent {shortAddress(snapshot?.agent.address ?? '')}
           </span>
-          <span className="pill mono" title="engine behind the paid services">
-            {data.llm?.configured ? data.llm.label : 'deterministic engine'}
+          <span className="plate__meta">
+            engine {data.llm?.configured ? data.llm.label : 'deterministic'}
           </span>
         </div>
       </header>
 
-      <section className="hero">
-        <div className="hero__copy">
-          <h1 className="hero__title">
-            Give your agent a budget,
+      <section className="bay">
+        <div>
+          <p className="kicker">Agent payments · settled on Solana devnet</p>
+          <h1 className="thesis">
+            Your agent gets a <em>budget</em>.
             <br />
-            not your keys.
+            Not your keys.
           </h1>
-          <p className="hero__sub">
-            Stipend gives an AI agent its own stablecoin wallet and a spending policy that is
-            checked <em>before</em> every signature. It buys what it needs, one call at a time, and
-            the receipts settle on Solana in about half a second.
+          <p className="gloss">
+            Stipend gives an AI agent its own wallet and a spending policy that is checked{' '}
+            <strong>before every signature</strong>. It buys the data it needs one call at a time,
+            and each purchase settles on Solana in about half a second.
           </p>
-          <div className="hero__actions">
+
+          <div className="controls">
             <button
-              className="btn btn--primary"
+              className="key key--go"
               onClick={() => void startRun('normal')}
               disabled={running || busy !== null}
             >
               {busy === 'normal' || running ? 'Running…' : 'Run a research task'}
+              <span className="key__price">${(runPrice / 1_000_000).toFixed(2)}</span>
             </button>
             <button
-              className="btn btn--ghost"
+              className="key key--stop"
               onClick={() => void startRun('rogue')}
               disabled={running || busy !== null}
             >
-              Send it to an overpriced vendor
+              Send it to a $5.00 vendor
+              <span className="key__price">refused</span>
             </button>
           </div>
           {error && <p className="hero__error">{error}</p>}
+
+          <ul className="legend">
+            {data.services?.map((service) => (
+              <li className="legend__item" key={service.id}>
+                {service.name}
+                <span className="legend__price">${(service.price / 1_000_000).toFixed(2)}</span>
+              </li>
+            ))}
+            <li className="legend__item legend__item--hostile">
+              {data.hostileService?.name}
+              <span className="legend__price">
+                ${((data.hostileService?.price ?? 0) / 1_000_000).toFixed(2)}
+              </span>
+            </li>
+          </ul>
         </div>
 
-        <BudgetMeter
+        <MeterHead
           spentToday={data.spentToday ?? 0}
           policy={policy}
           agentTokens={snapshot?.agent.tokensRaw ?? 0}
           runSpend={run?.spend ?? 0}
+          refusedCount={refusedCount}
         />
       </section>
 
-      <div className="grid">
-        <section className="panel panel--run">
-          <div className="panel__head">
-            <h2 className="panel__title">The run</h2>
-            <span className="panel__note">
+      <HowItWorks />
+
+      <div className="deck">
+        <section className="card">
+          <div className="card__head">
+            <h2 className="card__title">The run</h2>
+            <span className="card__note">
               {run
                 ? run.status === 'running'
                   ? 'live'
@@ -193,7 +213,7 @@ export default function Dashboard() {
           </div>
 
           <label className="field">
-            <span className="field__label">Goal the agent is buying data for</span>
+            <span className="field__label">What the agent is buying data for</span>
             <textarea
               className="field__input"
               value={goal}
@@ -203,22 +223,11 @@ export default function Dashboard() {
             />
           </label>
 
-          <div className="chipset">
-            {data.services?.map((service) => (
-              <span className="chip" key={service.id}>
-                <span className="chip__name">{service.name}</span>
-                <span className="chip__price mono">${(service.price / 1_000_000).toFixed(2)}</span>
-              </span>
-            ))}
-            <span className="chip chip--hostile">
-              <span className="chip__name">{data.hostileService?.name}</span>
-              <span className="chip__price mono">
-                ${((data.hostileService?.price ?? 0) / 1_000_000).toFixed(2)}
-              </span>
-            </span>
-          </div>
-
-          <RunLedger run={run} />
+          <RunLedger
+            run={run}
+            services={data.services}
+            hostilePrice={data.hostileService?.price}
+          />
 
           {run?.verdict && (
             <article className="verdict">
@@ -238,15 +247,15 @@ export default function Dashboard() {
 
       <footer className="foot">
         <span>
-          Real devnet transactions · mint{' '}
+          real devnet transactions · mint{' '}
           <a href={`https://explorer.solana.com/address/${snapshot?.mint}?cluster=devnet`} target="_blank" rel="noreferrer">
             {shortAddress(snapshot?.mint ?? '', 6)}
           </a>{' '}
           · {snapshot?.rpcHost}
         </span>
         <span>
-          Treasury holds {snapshot?.treasury.sol.toFixed(3)} SOL for fees · market data is a
-          synthetic demo set
+          treasury {snapshot?.treasury.sol.toFixed(3)} SOL for fees · market data is a synthetic demo
+          set
         </span>
       </footer>
     </main>

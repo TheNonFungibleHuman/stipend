@@ -19,6 +19,12 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'a goal between 3 and 400 characters is required' }, { status: 400 });
   }
+
+  if (process.env.STIPEND_FIXTURE === '1') {
+    const { fixtureRun } = await import('@/lib/fixture');
+    return NextResponse.json({ run: fixtureRun(parsed.data.mode ?? 'normal') });
+  }
+
   const origin = new URL(request.url).origin;
   try {
     const run = await startRun({ goal: parsed.data.goal, mode: parsed.data.mode, baseUrl: origin });

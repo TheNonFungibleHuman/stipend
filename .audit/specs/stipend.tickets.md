@@ -13,14 +13,14 @@ Spec: .audit/specs/stipend.md
 - surface: `lib/fixture.ts`, `app/api/state/route.ts`, `app/api/run/route.ts`
 - acceptance: with `STIPEND_FIXTURE=1`, `/api/state` returns a populated snapshot, ledger and a
   completed run whose steps include one settled and one refused, and the dashboard renders it.
-- status: open
+- status: done
 
 ## T2 — Replace the visual world
 - blocked by: T1
 - surface: `app/globals.css`, `app/components/*`, `app/layout.tsx`
 - acceptance: the dashboard renders in the committed direction at 1440 and the first viewport
   shows the mechanism (a budget that can be spent and refused), not a generic hero.
-- status: open
+- status: done
 
 ## T3 — Detector clean and two-viewport evidence
 - blocked by: T2
