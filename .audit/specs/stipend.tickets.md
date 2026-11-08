@@ -55,7 +55,29 @@ Spec: .audit/specs/stipend.md
 - surface: treasury wallet
 - acceptance: a normal run settles three calls; each signature is confirmed on devnet and the
   agent's token balance drops by exactly the quoted total.
-- status: open
+- status: done
+
+## T10 — Console as an operations dashboard
+- blocked by: T9
+- surface: `app/components/Console.tsx`, `StatusStrip`, `RunsTable`, `LedgerTable`, `LimitsEditor`,
+  `AgentPanel`, `RunSteps`
+- acceptance: `/app` shows status metrics, job steps, run history, limits and the ledger with no
+  marketing copy; run history survives a server restart because it is derived from the ledger.
+- status: done
+
+## T11 — Landing carries the argument: proof, FAQ, motion
+- blocked by: T7
+- surface: `app/page.tsx`, `Proof.tsx`, `Faq.tsx`, `Reveal.tsx`, `CountUp.tsx`
+- acceptance: the card-rail arithmetic, the eight questions and the console panel list live on `/`;
+  sections reveal on scroll and render visible with JS disabled.
+- status: done
+
+## T12 — Agent-authorised spending endpoint
+- blocked by: T8
+- surface: `app/api/agents/[id]/authorize/route.ts`, `AgentPanel`
+- acceptance: a caller presenting a valid agent token gets a signed, policy-checked payment header;
+  an over-cap request returns 403 with the reason and produces no signature.
+- status: done
 
 ## T5 — README, submission writeup, demo script
 - blocked by: T2
