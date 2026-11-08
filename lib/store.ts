@@ -60,19 +60,29 @@ export async function patchState(patch: Partial<PersistedState>): Promise<Persis
   return next;
 }
 
+/**
+ * Always read through to the store.
+ *
+ * The ledger used to be memoised on globalThis, which is fine on a laptop and
+ * wrong on a serverless host: a purchase written by one instance was invisible
+ * to the next request, so the console showed nothing and the daily budget never
+ * counted it. One Redis read per request is cheap; a stale money record is not.
+ */
 export async function getLedger(): Promise<LedgerEntry[]> {
-  if (!globalForStore.__stipendLedger) {
-    globalForStore.__stipendLedger = await readDocument<LedgerEntry[]>('ledger', []);
-  }
-  return globalForStore.__stipendLedger;
+  const stored = await readDocument<LedgerEntry[]>('ledger', []);
+  return Array.isArray(stored) ? stored : [];
 }
 
 export async function appendLedger(entry: LedgerEntry): Promise<void> {
-  const ledger = await getLedger();
-  ledger.unshift(entry);
-  // The demo cares about the last few hundred calls; the file should not grow forever.
-  if (ledger.length > 300) ledger.length = 300;
-  await writeDocument('ledger', ledger);
+  // Read-modify-write inside the lock so two concurrent settlements cannot drop
+  // each other's row.
+  await withStoreLock(async () => {
+    const ledger = await readDocument<LedgerEntry[]>('ledger', []);
+    ledger.unshift(entry);
+    // The demo cares about the last few hundred calls; the file should not grow forever.
+    if (ledger.length > 300) ledger.length = 300;
+    await writeDocument('ledger', ledger);
+  });
 }
 
 export async function clearLedger(): Promise<void> {
