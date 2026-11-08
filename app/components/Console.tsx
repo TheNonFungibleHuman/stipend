@@ -16,7 +16,13 @@ import { shortAddress } from '../types';
 const DEFAULT_GOAL =
   'Should we launch usage-based pricing for our AI observability product, and at what price?';
 
-export default function Console({ initialAgentId }: { initialAgentId?: string }) {
+export default function Console({
+  initialAgentId,
+  mcpPath,
+}: {
+  initialAgentId?: string;
+  mcpPath: string;
+}) {
   const [data, setData] = useState<StateResponse | null>(null);
   const [run, setRun] = useState<Run | null>(null);
   const [goal, setGoal] = useState(DEFAULT_GOAL);
@@ -169,9 +175,6 @@ export default function Console({ initialAgentId }: { initialAgentId?: string })
         </Link>
         <div className="plate__right">
           <span className="lamp lamp--live">devnet</span>
-          <span className={`lamp${data.llm?.configured ? ' lamp--live' : ' lamp--warn'}`}>
-            {data.llm?.configured ? data.llm.label : 'no model key'}
-          </span>
           {data.fixture && <span className="lamp lamp--warn">recorded session</span>}
           {agents.length > 0 && (
             <label className="selector">
@@ -254,6 +257,7 @@ export default function Console({ initialAgentId }: { initialAgentId?: string })
               agent={active}
               snapshot={snapshot}
               baseUrl={baseUrl}
+              mcpPath={mcpPath}
               onFund={() => void fundAgent()}
               funding={busy !== null}
             />

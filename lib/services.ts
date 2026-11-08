@@ -1,4 +1,4 @@
-import { complete, llmConfigured } from './llm';
+import { complete, llmConfigured, llmLastError } from './llm';
 import { fetchSignals, type Signal } from './vendors/signals';
 
 /**
@@ -36,6 +36,12 @@ function notesFrom(value: unknown): string[] {
     return candidate.notes.filter((note): note is string => typeof note === 'string').slice(0, 6);
   }
   return [];
+}
+
+/** A fallback is a fact about the run, so it gets said out loud. */
+function fallbackNote(sourceNote: string): string {
+  const reason = llmLastError();
+  return reason ? `${sourceNote} · model call failed: ${reason}` : `${sourceNote} · no model key`;
 }
 
 const bulletise = (text: string): string[] =>
@@ -122,7 +128,7 @@ export async function runService(
       serviceId,
       output: { notes: deterministicNotes(signals), signalCount: signals.length },
       engine: 'deterministic',
-      note: sourceNote,
+      note: fallbackNote(sourceNote),
       computeMs: Date.now() - started,
     };
   }
@@ -157,7 +163,7 @@ export async function runService(
       serviceId,
       output: { memo: deterministicMemo(context.query, signals) },
       engine: 'deterministic',
-      note: sourceNote,
+      note: fallbackNote(sourceNote),
       computeMs: Date.now() - started,
     };
   }

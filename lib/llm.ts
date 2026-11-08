@@ -24,25 +24,39 @@ function provider(): ProviderConfig | null {
     return {
       name: 'deepseek',
       key: deepseek,
-      model: override || 'deepseek-chat',
+      // The current Flash model. `deepseek-chat` is an alias that resolves here
+      // anyway; naming it explicitly stops the label lying about the model.
+      model: override || 'deepseek-flash',
       call: async ({ system, user, maxTokens, model, key }) => {
         const response = await fetch('https://api.deepseek.com/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
           body: JSON.stringify({
             model,
-            max_tokens: maxTokens,
+            // DeepSeek V4.1 Flash is a reasoning model: the reasoning tokens are
+            // drawn from max_tokens, so a small budget comes back with empty
+            // content and finish_reason "length". Floor it, and ask for low
+            // effort on these short extraction tasks.
+            max_tokens: Math.max(maxTokens, 2_500),
+            reasoning_effort: 'low',
             temperature: 0.3,
             messages: [
               { role: 'system', content: system },
               { role: 'user', content: user },
             ],
           }),
-          signal: AbortSignal.timeout(30_000),
+          signal: AbortSignal.timeout(90_000),
         });
         if (!response.ok) throw new Error(`deepseek ${response.status}`);
-        const json = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-        return json.choices?.[0]?.message?.content ?? '';
+        const json = (await response.json()) as {
+          choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
+        };
+        const choice = json.choices?.[0];
+        const content = choice?.message?.content ?? '';
+        if (!content.trim() && choice?.finish_reason === 'length') {
+          throw new Error('model hit the token ceiling before answering (reasoning used the budget)');
+        }
+        return content;
       },
     };
   }
@@ -66,7 +80,7 @@ function provider(): ProviderConfig | null {
               { role: 'user', content: user },
             ],
           }),
-          signal: AbortSignal.timeout(30_000),
+          signal: AbortSignal.timeout(60_000),
         });
         if (!response.ok) throw new Error(`openai ${response.status}`);
         const json = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
@@ -95,7 +109,7 @@ function provider(): ProviderConfig | null {
             system,
             messages: [{ role: 'user', content: user }],
           }),
-          signal: AbortSignal.timeout(30_000),
+          signal: AbortSignal.timeout(60_000),
         });
         if (!response.ok) throw new Error(`anthropic ${response.status}`);
         const json = (await response.json()) as { content?: Array<{ text?: string }> };
@@ -107,23 +121,45 @@ function provider(): ProviderConfig | null {
   return null;
 }
 
+/** Human names for the ids the API actually returns. */
+const MODEL_NAMES: Record<string, string> = {
+  'deepseek-flash': 'DeepSeek V4.1 Flash',
+  'deepseek-v4-pro': 'DeepSeek V4 Pro',
+};
+
+export const prettyModel = (id: string): string => MODEL_NAMES[id] ?? id;
+
 export function llmConfigured(): boolean {
   return provider() !== null;
 }
 
 export function llmLabel(): string {
   const config = provider();
-  return config ? `${config.name}/${config.model}` : 'deterministic';
+  return config ? prettyModel(config.model) : 'deterministic';
+}
+
+export function llmProvider(): string {
+  return provider()?.name ?? 'none';
 }
 
 /** Returns null instead of throwing: every caller has a deterministic fallback. */
+let lastError: string | null = null;
+
+/** Why the last model call fell back, so the UI can say it instead of hiding it. */
+export function llmLastError(): string | null {
+  return lastError;
+}
+
 export async function complete(args: {
   system: string;
   user: string;
   maxTokens?: number;
 }): Promise<LlmResult | null> {
   const config = provider();
-  if (!config) return null;
+  if (!config) {
+    lastError = 'no model key configured';
+    return null;
+  }
   const started = Date.now();
   try {
     const text = await config.call({
@@ -134,9 +170,19 @@ export async function complete(args: {
       key: config.key,
     });
     const trimmed = text.trim();
-    if (!trimmed) return null;
-    return { text: trimmed, provider: config.name, model: config.model, ms: Date.now() - started };
-  } catch {
+    if (!trimmed) {
+      lastError = 'model returned an empty response';
+      return null;
+    }
+    lastError = null;
+    return {
+      text: trimmed,
+      provider: config.name,
+      model: prettyModel(config.model),
+      ms: Date.now() - started,
+    };
+  } catch (error) {
+    lastError = error instanceof Error ? error.message : String(error);
     return null;
   }
 }

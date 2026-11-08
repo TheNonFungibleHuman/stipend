@@ -8,11 +8,12 @@ interface Props {
   agent: PublicAgent;
   snapshot?: ChainSnapshot;
   baseUrl: string;
+  mcpPath: string;
   onFund?: () => void;
   funding?: boolean;
 }
 
-function Copy({ value, label }: { value: string; label: string }) {
+function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -32,19 +33,49 @@ function Copy({ value, label }: { value: string; label: string }) {
   );
 }
 
-/** Identity and the exact handshake an agent uses to spend from this account. */
-export function AgentPanel({ agent, snapshot, baseUrl, onFund, funding }: Props) {
+/** Identity, funding, and the three ways to hand this agent to a real runtime. */
+export function AgentPanel({ agent, snapshot, baseUrl, mcpPath, onFund, funding }: Props) {
   const [revealed, setRevealed] = useState(false);
-  const [showCode, setShowCode] = useState(false);
+  const [tab, setTab] = useState<'prompt' | 'config' | 'http'>('prompt');
 
-  const snippet = `// 1 · ask the vendor (no payment yet) — you get a 402
+  const prompt = `Add a tool server called "stipend" to my MCP configuration.
+
+Transport: stdio
+Command: node
+Args: ["${mcpPath}"]
+Environment:
+  STIPEND_URL=${baseUrl}
+  STIPEND_AGENT_ID=${agent.id}
+  STIPEND_AGENT_TOKEN=${agent.token}
+
+It provides four tools: agent_status, buy_signals, buy_notes, buy_brief.
+Call agent_status first when you are unsure about budget. Use buy_signals when I ask what
+people are currently saying about a topic. Each paid call costs a few cents from my agent
+wallet and is capped by a policy I control; if a call is refused, do not retry it — report
+the refusal reason instead.`;
+
+  const config = `{
+  "mcpServers": {
+    "stipend": {
+      "command": "node",
+      "args": ["${mcpPath.replace(/\\/g, '\\\\')}"],
+      "env": {
+        "STIPEND_URL": "${baseUrl}",
+        "STIPEND_AGENT_ID": "${agent.id}",
+        "STIPEND_AGENT_TOKEN": "${agent.token}"
+      }
+    }
+  }
+}`;
+
+  const http = `// 1 · ask the vendor (no payment yet) — you get a 402
 const ask = await fetch('${baseUrl}/api/paid/market-intel', {
   method: 'POST',
   headers: { 'x-agent-token': TOKEN, 'content-type': 'application/json' },
-  body: JSON.stringify({ query: 'ai observability pricing' }),
+  body: JSON.stringify({ query: 'what are people saying about usage-based pricing' }),
 });
 
-// 2 · authorise it against your caps. 403 means the policy refused it.
+// 2 · authorise it against the caps. 403 means the policy refused it.
 const quote = (await ask.json()).accepts;
 const auth = await fetch('${baseUrl}/api/agents/${agent.id}/authorize', {
   method: 'POST',
@@ -57,14 +88,12 @@ const { header } = await auth.json();
 // 3 · retry with proof. The vendor re-reads the chain, then returns data.
 const paid = await fetch('${baseUrl}/api/paid/market-intel', {
   method: 'POST',
-  headers: {
-    'x-agent-token': TOKEN,
-    'x-payment': header,
-    'content-type': 'application/json',
-  },
-  body: JSON.stringify({ query: 'ai observability pricing' }),
+  headers: { 'x-agent-token': TOKEN, 'x-payment': header, 'content-type': 'application/json' },
+  body: JSON.stringify({ query: 'what are people saying about usage-based pricing' }),
 });
 const { output, receipt } = await paid.json();`;
+
+  const active = tab === 'prompt' ? prompt : tab === 'config' ? config : http;
 
   return (
     <section className="card">
@@ -86,7 +115,7 @@ const { output, receipt } = await paid.json();`;
           <dt>Wallet</dt>
           <dd className="facts__mono">
             {shortAddress(agent.address, 8)}
-            <Copy value={agent.address} label="Copy" />
+            <CopyButton value={agent.address} label="Copy" />
           </dd>
         </div>
         <div>
@@ -96,7 +125,7 @@ const { output, receipt } = await paid.json();`;
             <button className="switch" onClick={() => setRevealed((value) => !value)}>
               {revealed ? 'Hide' : 'Reveal'}
             </button>
-            <Copy value={agent.token} label="Copy" />
+            <CopyButton value={agent.token} label="Copy" />
           </dd>
         </div>
         <div>
@@ -107,15 +136,13 @@ const { output, receipt } = await paid.json();`;
         </div>
         <div>
           <dt>Allowlist</dt>
-          <dd>
-            {agent.policy.allowlist.length > 0 ? agent.policy.allowlist.join(', ') : 'any vendor'}
-          </dd>
+          <dd>{agent.policy.allowlist.length > 0 ? agent.policy.allowlist.join(', ') : 'any vendor'}</dd>
         </div>
         <div>
           <dt>Mint</dt>
           <dd className="facts__mono">
             {shortAddress(snapshot?.mint ?? '', 6)}
-            {snapshot?.mint && <Copy value={snapshot.mint} label="Copy" />}
+            {snapshot?.mint && <CopyButton value={snapshot.mint} label="Copy" />}
           </dd>
         </div>
       </dl>
@@ -131,19 +158,64 @@ const { output, receipt } = await paid.json();`;
         </p>
       </div>
 
-      <button className="wire__summary agentpanel__toggle" onClick={() => setShowCode((v) => !v)}>
-        {showCode ? '− ' : '+ '}Connect your agent
-      </button>
-      {showCode && (
-        <>
-          <pre className="wire__body">{snippet}</pre>
+      <div className="agentpanel__wire">
+        <div className="agentpanel__tabs" role="tablist" aria-label="How to connect your agent">
+          <button
+            role="tab"
+            aria-selected={tab === 'prompt'}
+            className={`switch${tab === 'prompt' ? ' switch--armed' : ''}`}
+            onClick={() => setTab('prompt')}
+          >
+            Paste a prompt
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === 'config'}
+            className={`switch${tab === 'config' ? ' switch--armed' : ''}`}
+            onClick={() => setTab('config')}
+          >
+            MCP config
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === 'http'}
+            className={`switch${tab === 'http' ? ' switch--armed' : ''}`}
+            onClick={() => setTab('http')}
+          >
+            Raw HTTP
+          </button>
+        </div>
+
+        <div className="agentpanel__codewrap">
+          <pre className="wire__body">{active}</pre>
+          <CopyButton value={active} label="Copy block" />
+        </div>
+
+        {tab === 'prompt' && (
           <p className="wire__note">
-            Swap <span className="mono">TOKEN</span> for the API token above. Your model provider key
-            never goes anywhere near this — this token only authorises spending from this agent&apos;s
-            wallet, and only inside the caps.
+            Give this to Claude Code, Cursor, opencode or any tool-capable agent and it will install
+            the tool server itself. It exposes <span className="mono">buy_signals</span>,{' '}
+            <span className="mono">buy_notes</span>, <span className="mono">buy_brief</span> and{' '}
+            <span className="mono">agent_status</span> — the 402 handshake happens inside the server,
+            so your agent just sees a tool result and a receipt.
           </p>
-        </>
-      )}
+        )}
+        {tab === 'config' && (
+          <p className="wire__note">
+            Paste into the client&apos;s MCP config. The server is one dependency-free file:
+            it makes no network calls except to <span className="mono">STIPEND_URL</span>, and holds
+            no keys.
+          </p>
+        )}
+        {tab === 'http' && (
+          <p className="wire__note">
+            If you would rather not use MCP, this is the same handshake over plain HTTP. Replace{' '}
+            <span className="mono">TOKEN</span> with the API token above. Your model provider key
+            never goes anywhere near this — this token only authorises spending from this wallet,
+            inside the caps.
+          </p>
+        )}
+      </div>
     </section>
   );
 }

@@ -2276,6 +2276,35 @@ a.key {
   justify-content: center;
 }
 
+.agentpanel__wire {
+  padding-top: 14px;
+  border-top: var(--hair);
+}
+
+.agentpanel__tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.agentpanel__codewrap {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.agentpanel__codewrap .wire__body {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  font-size: 10px;
+}
+
+.agentpanel__codewrap .switch {
+  justify-self: start;
+}
+
 .agentpanel__fundnote {
   margin: 0;
   font-size: 11px;
