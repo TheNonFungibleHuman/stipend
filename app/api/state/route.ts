@@ -1,54 +1,79 @@
 import { NextResponse } from 'next/server';
+import { allAgents, toPublic } from '@/lib/agents';
 import { listRuns, spentToday } from '@/lib/agent';
 import { bootstrap, FundingRequiredError, liveSnapshot } from '@/lib/bootstrap';
 import { HOSTILE_SERVICE, SERVICES } from '@/lib/config';
 import { llmConfigured, llmLabel } from '@/lib/llm';
-import { getLedger, getState } from '@/lib/store';
+import { getLedger } from '@/lib/store';
 import { wallets } from '@/lib/wallets';
 
 export const dynamic = 'force-dynamic';
 
-/** Everything the dashboard needs, in one poll. */
+/** Everything the console needs for one agent, in one poll. */
 export async function GET(request: Request) {
-  const refresh = new URL(request.url).searchParams.get('refresh') === '1';
+  const url = new URL(request.url);
+  const refresh = url.searchParams.get('refresh') === '1';
+  const agentId = url.searchParams.get('agent');
   const { treasury } = await wallets();
 
   // Recorded session, for building and reviewing the interface without devnet.
   if (process.env.STIPEND_FIXTURE === '1') {
     const { fixtureLedger, fixtureRun, fixtureSnapshot } = await import('@/lib/fixture');
     const ledger = fixtureLedger();
+    const snapshot = fixtureSnapshot();
     return NextResponse.json({
       ok: true,
       needsFunding: false,
       fixture: true,
-      snapshot: fixtureSnapshot(),
-      policy: fixtureSnapshot().policy,
-      spentToday: ledger.filter((entry) => entry.decision === 'settled').reduce((s, e) => s + e.price, 0),
+      snapshot,
+      policy: snapshot.policy,
+      spentToday: ledger
+        .filter((entry) => entry.decision === 'settled')
+        .reduce((sum, entry) => sum + entry.price, 0),
       ledger,
       services: SERVICES,
       hostileService: HOSTILE_SERVICE,
       llm: { configured: llmConfigured(), label: llmLabel() },
       runs: [fixtureRun('normal')],
+      agents: [
+        {
+          id: snapshot.agent.id,
+          name: snapshot.agent.name,
+          address: snapshot.agent.address,
+          token: 'stp_demo_token_do_not_use',
+          policy: snapshot.policy,
+          createdAt: new Date(Date.now() - 86_400_000).toISOString(),
+          demo: true,
+          tokensRaw: snapshot.agent.tokensRaw,
+        },
+      ],
+      activeAgentId: snapshot.agent.id,
     });
   }
 
   try {
-    const state = await getState();
-    let snapshot = state.mint ? await liveSnapshot(refresh ? 0 : 1500) : await bootstrap();
-    if (!snapshot.mint) snapshot = await bootstrap();
+    await bootstrap();
+    const snapshot = await liveSnapshot(agentId, refresh ? 0 : 1500);
+    const ledger = (await getLedger()).filter(
+      (entry) => entry.agentId === snapshot.agent.id || entry.agentId === undefined,
+    );
+    const agents = await allAgents();
 
-    const ledger = await getLedger();
     return NextResponse.json({
       ok: true,
       needsFunding: false,
       snapshot,
       policy: snapshot.policy,
-      spentToday: spentToday(ledger),
-      ledger: ledger.slice(0, 60),
+      spentToday: spentToday(ledger, snapshot.agent.id),
+      ledger,
       services: SERVICES,
       hostileService: HOSTILE_SERVICE,
       llm: { configured: llmConfigured(), label: llmLabel() },
-      runs: listRuns(),
+      runs: listRuns(snapshot.agent.id),
+      agents: agents.map((agent) =>
+        toPublic(agent, agent.id === snapshot.agent.id ? snapshot.agent.tokensRaw : undefined),
+      ),
+      activeAgentId: snapshot.agent.id,
     });
   } catch (error) {
     if (error instanceof FundingRequiredError) {

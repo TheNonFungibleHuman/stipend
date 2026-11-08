@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { PublicKey } from '@solana/web3.js';
-import { bootstrap, snapshot } from './bootstrap';
-import { ONE_TOKEN, serviceById, type Policy } from './config';
+import { keypairFor, pickAgent, type AgentRecord } from './agents';
+import { bootstrap, provisionAgent, tokenBalanceOf } from './bootstrap';
+import { serviceById, type Policy } from './config';
 import { llmLabel } from './llm';
 import { paidCall, type Quote } from './pay';
 import { cardFeeFor } from './policy';
@@ -31,6 +32,8 @@ export interface RunStep {
 
 export interface Run {
   id: string;
+  agentId: string;
+  agentName: string;
   goal: string;
   mode: 'normal' | 'rogue';
   status: 'running' | 'complete' | 'error';
@@ -56,15 +59,21 @@ export function getRun(id: string): Run | undefined {
   return runs().get(id);
 }
 
-export function listRuns(): Run[] {
-  return [...runs().values()].slice(-12).reverse();
+export function listRuns(agentId?: string): Run[] {
+  const all = [...runs().values()];
+  return (agentId ? all.filter((run) => run.agentId === agentId) : all).slice(-12).reverse();
 }
 
-/** Rolling 24h spend, read from the persisted ledger. */
-export function spentToday(ledger: LedgerEntry[]): number {
+/** Rolling 24h spend for one agent, read from the persisted ledger. */
+export function spentToday(ledger: LedgerEntry[], agentId?: string): number {
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   return ledger
-    .filter((entry) => entry.decision === 'settled' && Date.parse(entry.at) > cutoff)
+    .filter(
+      (entry) =>
+        entry.decision === 'settled' &&
+        Date.parse(entry.at) > cutoff &&
+        (agentId ? entry.agentId === agentId || entry.agentId === undefined : true),
+    )
     .reduce((sum, entry) => sum + entry.price, 0);
 }
 
@@ -74,6 +83,7 @@ const PLAN: Record<Run['mode'], string[]> = {
 };
 
 export interface StartRunInput {
+  agentId?: string | null;
   goal: string;
   mode?: Run['mode'];
   baseUrl: string;
@@ -85,21 +95,23 @@ export interface StartRunInput {
  * is what actually happened on the wire.
  */
 export async function startRun(input: StartRunInput): Promise<Run> {
-  const state = await getState();
+  const agent = await pickAgent(input.agentId);
   const run: Run = {
     id: randomUUID().slice(0, 8),
+    agentId: agent.id,
+    agentName: agent.name,
     goal: input.goal,
     mode: input.mode ?? 'normal',
     status: 'running',
     startedAt: new Date().toISOString(),
-    policy: state.policy,
+    policy: agent.policy,
     engine: llmLabel(),
     steps: [],
     spend: 0,
     refused: 0,
   };
   runs().set(run.id, run);
-  void execute(run, input.baseUrl).catch((error) => {
+  void execute(run, agent, input.baseUrl).catch((error) => {
     run.status = 'error';
     run.error = error instanceof Error ? error.message : String(error);
     run.endedAt = new Date().toISOString();
@@ -107,15 +119,21 @@ export async function startRun(input: StartRunInput): Promise<Run> {
   return run;
 }
 
-async function execute(run: Run, baseUrl: string): Promise<void> {
-  const snap = await bootstrap();
-  const mint = new PublicKey(snap.mint);
-  const { agent, treasury } = await wallets();
-  const ledger = await getLedger();
-  let spent = spentToday(ledger);
-  let balance = snap.agent.tokensRaw;
+async function execute(run: Run, agent: AgentRecord, baseUrl: string): Promise<void> {
+  await bootstrap();
+  const state = await getState();
+  if (!state.mint) throw new Error('devnet is not ready');
+  const mint = new PublicKey(state.mint);
 
-  run.policy = snap.policy;
+  // Top the agent up before it starts, so a run is never cut short by runway.
+  await provisionAgent(agent, mint);
+
+  const { treasury } = await wallets();
+  const agentKeypair = keypairFor(agent);
+  const ledger = await getLedger();
+  let spent = spentToday(ledger, agent.id);
+
+  run.policy = agent.policy;
 
   for (const [index, serviceId] of PLAN[run.mode].entries()) {
     const definition = serviceById(serviceId);
@@ -136,6 +154,9 @@ async function execute(run: Run, baseUrl: string): Promise<void> {
     const previous = run.steps[index - 1];
     const context = previous?.output ?? null;
 
+    // The agent's live balance is read fresh each step: it is the real limit.
+    let balance = await tokenBalanceOf(mint, agentKeypair.publicKey);
+
     try {
       step.status = 'settling';
       const result = await paidCall({
@@ -144,10 +165,11 @@ async function execute(run: Run, baseUrl: string): Promise<void> {
         query: run.goal,
         runId: run.id,
         context,
-        policy: snap.policy,
+        agentToken: agent.token,
+        policy: agent.policy,
         spentToday: spent,
         agentBalance: balance,
-        agent,
+        agent: agentKeypair,
         treasury,
         mint,
       });
@@ -174,6 +196,7 @@ async function execute(run: Run, baseUrl: string): Promise<void> {
         await appendLedger({
           id: `${run.id}-${index}`,
           runId: run.id,
+          agentId: agent.id,
           at: new Date().toISOString(),
           serviceId,
           serviceName: definition.name,
@@ -193,6 +216,7 @@ async function execute(run: Run, baseUrl: string): Promise<void> {
         await appendLedger({
           id: `${run.id}-${index}`,
           runId: run.id,
+          agentId: agent.id,
           at: new Date().toISOString(),
           serviceId,
           serviceName: definition.name,
@@ -210,6 +234,7 @@ async function execute(run: Run, baseUrl: string): Promise<void> {
         await appendLedger({
           id: `${run.id}-${index}`,
           runId: run.id,
+          agentId: agent.id,
           at: new Date().toISOString(),
           serviceId,
           serviceName: definition.name,
@@ -233,11 +258,3 @@ async function execute(run: Run, baseUrl: string): Promise<void> {
   run.status = 'complete';
   run.endedAt = new Date().toISOString();
 }
-
-/** Fresh balances for the header, after a run changes them. */
-export async function refreshAgentBalance(): Promise<number> {
-  const snap = await snapshot();
-  return snap.agent.tokensRaw;
-}
-
-export const toDollars = (baseUnits: number): number => baseUnits / ONE_TOKEN;

@@ -10,6 +10,7 @@ interface Props {
   agentTokens: number;
   runSpend: number;
   refusedCount: number;
+  agentName?: string;
 }
 
 /**
@@ -17,7 +18,14 @@ interface Props {
  * the per-call cap marked on it, the slot the agent pays through, and the coin
  * return that fills up with the purchases the policy refused.
  */
-export function MeterHead({ spentToday, policy, agentTokens, runSpend, refusedCount }: Props) {
+export function MeterHead({
+  spentToday,
+  policy,
+  agentTokens,
+  runSpend,
+  refusedCount,
+  agentName,
+}: Props) {
   const dailyCap = policy?.dailyCap ?? 1_000_000;
   const perCallCap = policy?.perCallCap ?? 100_000;
   const remaining = Math.max(0, dailyCap - spentToday);
@@ -49,7 +57,9 @@ export function MeterHead({ spentToday, policy, agentTokens, runSpend, refusedCo
 
       <div className="machine__glass">
         <div className="machine__head">
-          <span className="machine__label">Budget remaining</span>
+          <span className="machine__label">
+            {agentName ? `${agentName} · budget remaining` : 'Budget remaining'}
+          </span>
           <span className="machine__reset">resets every 24h</span>
         </div>
 
@@ -66,7 +76,7 @@ export function MeterHead({ spentToday, policy, agentTokens, runSpend, refusedCo
                 digit === '.' ? ' odometer__cell--dot' : ''
               }${digit === '0' && index === 0 && dollars === 0 ? ' odometer__cell--dim' : ''}`}
             >
-              {digit === ' ' ? '\u00A0' : digit}
+              {digit}
             </span>
           ))}
         </div>
@@ -76,7 +86,11 @@ export function MeterHead({ spentToday, policy, agentTokens, runSpend, refusedCo
           is refused.
         </p>
 
-        <div className="gauge" role="img" aria-label={`${usedPercent.toFixed(0)} percent of the daily budget spent`}>
+        <div
+          className="gauge"
+          role="img"
+          aria-label={`${usedPercent.toFixed(0)} percent of the daily budget spent`}
+        >
           <span className="gauge__fill" style={{ width: `${usedPercent}%` }} />
           <span className="gauge__cap" style={{ left: `${capPercent}%` }} />
         </div>

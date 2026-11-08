@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { agentByToken } from '@/lib/agents';
 import { PAYMENT_HEADER, serviceById } from '@/lib/config';
 import type { MarketIntel } from '@/lib/services';
 import { runService } from '@/lib/services';
@@ -51,6 +52,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ ser
   };
 
   const header = request.headers.get(PAYMENT_HEADER);
+
+  // A caller may identify itself with an agent token. If it does, it must be
+  // real: attribution is the difference between a payment and a payment you can
+  // put a name to.
+  const token = request.headers.get('x-agent-token');
+  const caller = token ? await agentByToken(token) : undefined;
+  if (token && !caller) {
+    return NextResponse.json({ error: 'unknown agent token' }, { status: 401 });
+  }
+
   const challenge = (reason: string) =>
     NextResponse.json(
       { error: 'payment required', reason, accepts },
@@ -93,6 +104,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ser
         slot: verdict.slot,
         settled: verdict.settledAmount,
         runId: proof.runId,
+        agent: caller ? { id: caller.id, name: caller.name } : null,
       },
     },
     {

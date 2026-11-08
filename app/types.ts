@@ -33,6 +33,8 @@ export interface RunStep {
 
 export interface Run {
   id: string;
+  agentId: string;
+  agentName: string;
   goal: string;
   mode: 'normal' | 'rogue';
   status: 'running' | 'complete' | 'error';
@@ -49,6 +51,7 @@ export interface Run {
 export interface LedgerEntry {
   id: string;
   runId: string;
+  agentId?: string;
   at: string;
   serviceId: string;
   serviceName: string;
@@ -74,10 +77,21 @@ export interface ChainSnapshot {
   rpcHost: string;
   network: 'devnet';
   treasury: { address: string; sol: number; tokensRaw: number };
-  agent: { address: string; tokensRaw: number };
+  agent: { id: string; name: string; address: string; tokensRaw: number };
   providers: Array<{ id: string; address: string; tokensRaw: number }>;
   policy: Policy;
   ready: boolean;
+}
+
+export interface PublicAgent {
+  id: string;
+  name: string;
+  address: string;
+  token: string;
+  policy: Policy;
+  createdAt: string;
+  demo: boolean;
+  tokensRaw?: number;
 }
 
 export interface ServiceDef {
@@ -104,6 +118,8 @@ export interface StateResponse {
   hostileService?: ServiceDef;
   llm?: { configured: boolean; label: string };
   runs?: Run[];
+  agents?: PublicAgent[];
+  activeAgentId?: string;
 }
 
 export const ONE = 1_000_000;

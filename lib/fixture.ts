@@ -32,7 +32,7 @@ export function fixtureSnapshot(): ChainSnapshot {
     rpcHost: 'api.devnet.solana.com',
     network: 'devnet',
     treasury: { address: TREASURY, sol: 0.483, tokensRaw: 0 },
-    agent: { address: AGENT, tokensRaw: 24_940_000 },
+    agent: { id: 'demo0001', name: 'Atlas (demo)', address: AGENT, tokensRaw: 24_940_000 },
     providers: SERVICES.map((service, index) => ({
       id: service.id,
       address: PROVIDERS[index],
@@ -142,6 +142,8 @@ export function fixtureRun(mode: 'normal' | 'rogue' = 'normal'): Run {
   if (mode === 'rogue') {
     return {
       id: 'rogue001',
+      agentId: 'demo0001',
+      agentName: 'Atlas (demo)',
       goal: 'Buy premium competitor data at any price.',
       mode: 'rogue',
       status: 'complete',
@@ -178,6 +180,8 @@ export function fixtureRun(mode: 'normal' | 'rogue' = 'normal'): Run {
 
   return {
     id: 'run00001',
+    agentId: 'demo0001',
+    agentName: 'Atlas (demo)',
     goal: 'Should we launch usage-based pricing for our AI observability product, and at what price?',
     mode: 'normal',
     status: 'complete',

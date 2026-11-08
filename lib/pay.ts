@@ -33,6 +33,8 @@ export interface PaidCallInput {
   runId: string;
   /** Output of the previous step, so the chain is a pipeline and not three parallel calls. */
   context?: unknown;
+  /** The agent's own token, presented so the vendor can attribute the call. */
+  agentToken?: string;
   policy: Policy;
   spentToday: number;
   agentBalance: number;
@@ -52,12 +54,20 @@ function bodyFor(input: PaidCallInput): string {
   return JSON.stringify({ query: input.query, runId: input.runId, context: input.context ?? null });
 }
 
+function headersFor(input: PaidCallInput, extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    ...(input.agentToken ? { 'x-agent-token': input.agentToken } : {}),
+    ...extra,
+  };
+}
+
 /** Step one of the dance: ask, and read the price off a real 402. */
 async function requestQuote(input: PaidCallInput): Promise<{ response: Response; quote?: Quote }> {
   const response = await fetch(paidUrl(input), {
     method: 'POST',
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json' },
+    headers: headersFor(input),
     body: bodyFor(input),
   });
   if (response.status !== 402) return { response };
@@ -151,15 +161,14 @@ export async function paidCall(input: PaidCallInput): Promise<PaidCallResult> {
   const paid = await fetch(paidUrlWithProof, {
     method: 'POST',
     cache: 'no-store',
-    headers: {
-      'Content-Type': 'application/json',
+    headers: headersFor(input, {
       [PAYMENT_HEADER]: paymentHeader({
         serviceId: quote.serviceId,
         signature,
         amount: quote.price,
         runId: input.runId,
       }),
-    },
+    }),
     body: bodyFor(input),
   });
 

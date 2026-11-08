@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Economics } from './Economics';
 import { FundingGate } from './FundingGate';
 import { HowItWorks } from './HowItWorks';
@@ -14,23 +15,40 @@ import { shortAddress } from '../types';
 const DEFAULT_GOAL =
   'Should we launch usage-based pricing for our AI observability product, and at what price?';
 
-export default function Dashboard() {
+export default function Dashboard({ initialAgentId }: { initialAgentId?: string }) {
   const [data, setData] = useState<StateResponse | null>(null);
   const [run, setRun] = useState<Run | null>(null);
   const [goal, setGoal] = useState(DEFAULT_GOAL);
+  const [agentId, setAgentId] = useState<string | undefined>(initialAgentId);
   const [busy, setBusy] = useState<null | 'normal' | 'rogue'>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [connError, setConnError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const failures = useRef(0);
+  const activeId = useRef<string | undefined>(initialAgentId);
+  activeId.current = agentId;
 
   const loadState = useCallback(async (refresh = false) => {
     try {
-      const response = await fetch(`/api/state${refresh ? '?refresh=1' : ''}`, {
-        cache: 'no-store',
-      });
+      const query = new URLSearchParams();
+      if (refresh) query.set('refresh', '1');
+      if (activeId.current) query.set('agent', activeId.current);
+      const response = await fetch(`/api/state?${query.toString()}`, { cache: 'no-store' });
       const json = (await response.json()) as StateResponse;
+      failures.current = 0;
+      setConnError(null);
       setData(json);
-      if (json.error) setError(json.error);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'could not reach the server');
+      if (json.activeAgentId && json.activeAgentId !== activeId.current) {
+        // The server resolved a different agent than we asked for.
+        activeId.current = json.activeAgentId;
+        setAgentId(json.activeAgentId);
+      }
+      if (json.error) setActionError(json.error);
+    } catch {
+      // One dropped poll is normal; only speak up when it repeats.
+      failures.current += 1;
+      if (failures.current >= 3) {
+        setConnError('lost the connection to the local server — is it still running?');
+      }
     }
   }, []);
 
@@ -60,34 +78,42 @@ export default function Dashboard() {
 
   const startRun = async (mode: 'normal' | 'rogue') => {
     setBusy(mode);
-    setError(null);
+    setActionError(null);
     try {
       const response = await fetch('/api/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal, mode }),
+        body: JSON.stringify({ goal, mode, agentId }),
       });
       const json = (await response.json()) as { run?: Run; error?: string };
       if (json.error || !json.run) throw new Error(json.error ?? 'run did not start');
       setRun(json.run);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'run did not start');
+      setActionError(cause instanceof Error ? cause.message : 'run did not start');
     } finally {
       setBusy(null);
     }
   };
 
   const applyPolicy = async (patch: { perCallCap?: number; dailyCap?: number }) => {
+    if (!agentId) return;
     try {
-      await fetch('/api/policy', {
-        method: 'POST',
+      await fetch(`/api/agents/${agentId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
       });
       await loadState(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'policy update failed');
+      setActionError(cause instanceof Error ? cause.message : 'policy update failed');
     }
+  };
+
+  const switchAgent = (id: string) => {
+    setAgentId(id);
+    activeId.current = id;
+    setRun(null);
+    void loadState(true);
   };
 
   if (!data) {
@@ -122,19 +148,36 @@ export default function Dashboard() {
   return (
     <main className="cabinet">
       <header className="plate">
-        <div className="plate__brand">
+        <Link className="plate__brand" href="/">
           <span className="plate__serial">S-402</span>
           <span className="plate__name">Stipend</span>
-        </div>
+        </Link>
         <div className="plate__right">
           <span className="lamp lamp--live">devnet</span>
           {data.fixture && <span className="lamp lamp--warn">recorded session</span>}
-          <span className="plate__meta" title={snapshot?.agent.address}>
-            agent {shortAddress(snapshot?.agent.address ?? '')}
-          </span>
-          <span className="plate__meta">
-            engine {data.llm?.configured ? data.llm.label : 'deterministic'}
-          </span>
+          {data.agents && data.agents.length > 1 ? (
+            <label className="selector">
+              <span className="selector__label">Agent</span>
+              <select
+                className="selector__input"
+                value={agentId ?? data.activeAgentId ?? ''}
+                onChange={(event) => switchAgent(event.target.value)}
+              >
+                {data.agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <span className="plate__meta" title={snapshot?.agent.address}>
+              {snapshot?.agent.name} · {shortAddress(snapshot?.agent.address ?? '')}
+            </span>
+          )}
+          <Link className="plate__meta plate__link" href="/start">
+            + new agent
+          </Link>
         </div>
       </header>
 
@@ -170,7 +213,9 @@ export default function Dashboard() {
               <span className="key__price">refused</span>
             </button>
           </div>
-          {error && <p className="hero__error">{error}</p>}
+          {(actionError || connError) && (
+            <p className="hero__error">{actionError ?? connError}</p>
+          )}
 
           <ul className="legend">
             {data.services?.map((service) => (
@@ -194,6 +239,7 @@ export default function Dashboard() {
           agentTokens={snapshot?.agent.tokensRaw ?? 0}
           runSpend={run?.spend ?? 0}
           refusedCount={refusedCount}
+          agentName={snapshot?.agent.name}
         />
       </section>
 
@@ -223,11 +269,7 @@ export default function Dashboard() {
             />
           </label>
 
-          <RunLedger
-            run={run}
-            services={data.services}
-            hostilePrice={data.hostileService?.price}
-          />
+          <RunLedger run={run} services={data.services} hostilePrice={data.hostileService?.price} />
 
           {run?.verdict && (
             <article className="verdict">
@@ -248,7 +290,11 @@ export default function Dashboard() {
       <footer className="foot">
         <span>
           real devnet transactions · mint{' '}
-          <a href={`https://explorer.solana.com/address/${snapshot?.mint}?cluster=devnet`} target="_blank" rel="noreferrer">
+          <a
+            href={`https://explorer.solana.com/address/${snapshot?.mint}?cluster=devnet`}
+            target="_blank"
+            rel="noreferrer"
+          >
             {shortAddress(snapshot?.mint ?? '', 6)}
           </a>{' '}
           · {snapshot?.rpcHost}

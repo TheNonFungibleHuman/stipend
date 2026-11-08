@@ -13,6 +13,8 @@ export type LedgerDecision = 'settled' | 'refused' | 'error';
 export interface LedgerEntry {
   id: string;
   runId: string;
+  /** Which agent spent this. Absent on records written before agents existed. */
+  agentId?: string;
   at: string;
   serviceId: string;
   serviceName: string;

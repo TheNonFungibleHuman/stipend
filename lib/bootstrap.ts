@@ -7,10 +7,10 @@ import {
   mintTo,
 } from '@solana/spl-token';
 import { Keypair, PublicKey, sendAndConfirmTransaction, Transaction } from '@solana/web3.js';
+import { addressOf, ensureDemoAgent, getAgent, pickAgent, publicKeyOf, type AgentRecord } from './agents';
 import {
   AGENT_TOKEN_GRANT,
   ALL_SERVICES,
-  ONE_TOKEN,
   RPC_URL,
   SERVICES,
   TOKEN_DECIMALS,
@@ -29,13 +29,13 @@ export interface ChainSnapshot {
   rpcHost: string;
   network: 'devnet';
   treasury: { address: string; sol: number; tokensRaw: number };
-  agent: { address: string; tokensRaw: number };
+  agent: { id: string; name: string; address: string; tokensRaw: number };
   providers: Array<{ id: string; address: string; tokensRaw: number }>;
   policy: Policy;
   ready: boolean;
 }
 
-const globalForBootstrap = globalThis as unknown as { __stipendBootstrap?: Promise<ChainSnapshot> };
+const globalForBootstrap = globalThis as unknown as { __stipendBootstrap?: Promise<void> };
 
 async function solBalance(address: PublicKey): Promise<number> {
   return withRetry('getBalance', () => connection().getBalance(address, 'confirmed'));
@@ -65,7 +65,7 @@ export class FundingRequiredError extends Error {
   }
 }
 
-/** The treasury pays every fee in the demo, so it needs a little SOL of its own. */
+/** The treasury pays every fee, so it needs a little SOL of its own. */
 async function ensureTreasurySol(treasury: Keypair): Promise<void> {
   const balance = await solBalance(treasury.publicKey);
   if (balance >= TREASURY_MIN_LAMPORTS) return;
@@ -85,7 +85,11 @@ async function ensureTreasurySol(treasury: Keypair): Promise<void> {
   }
 }
 
-async function ensureAta(payer: Keypair, mint: PublicKey, owner: PublicKey): Promise<PublicKey> {
+export async function ensureAta(
+  payer: Keypair,
+  mint: PublicKey,
+  owner: PublicKey,
+): Promise<PublicKey> {
   const ata = getAssociatedTokenAddressSync(mint, owner, true);
   const existing = await connection().getAccountInfo(ata);
   if (existing) return ata;
@@ -119,7 +123,7 @@ async function ensureMint(treasury: Keypair): Promise<PublicKey> {
       const mint = await getMint(connection(), new PublicKey(state.mint), 'confirmed');
       if (mint.decimals === TOKEN_DECIMALS) return new PublicKey(state.mint);
     } catch {
-      // Fall through: the mint is gone (devnet reset), make a new one.
+      // The mint is gone (devnet reset); fall through and make a new one.
     }
   }
 
@@ -130,44 +134,54 @@ async function ensureMint(treasury: Keypair): Promise<PublicKey> {
   return mintAddress;
 }
 
-/** Gives the agent enough runway to keep buying, without touching its policy. */
-export async function fundAgent(mintAddress: PublicKey, amount = AGENT_TOKEN_GRANT): Promise<void> {
-  const { treasury, agent } = await wallets();
-  const agentAta = await ensureAta(treasury, mintAddress, agent.publicKey);
-  await withRetry('mintTo', () =>
-    mintTo(connection(), treasury, mintAddress, agentAta, treasury, amount),
-  );
+/** Gives an agent enough runway to keep buying, without touching its policy. */
+export async function fundAgent(
+  mintAddress: PublicKey,
+  owner: PublicKey,
+  amount = AGENT_TOKEN_GRANT,
+): Promise<void> {
+  const { treasury } = await wallets();
+  const ata = await ensureAta(treasury, mintAddress, owner);
+  await withRetry('mintTo', () => mintTo(connection(), treasury, mintAddress, ata, treasury, amount));
 }
 
-async function bootstrapOnce(): Promise<ChainSnapshot> {
-  const { treasury, agent, providers } = await wallets();
+/** Creates the agent's token account and tops it up when it is running low. */
+export async function provisionAgent(record: AgentRecord, mintAddress: PublicKey): Promise<number> {
+  const { treasury } = await wallets();
+  const owner = publicKeyOf(record);
+  const ata = await ensureAta(treasury, mintAddress, owner);
+  const balance = await readTokenBalance(ata);
+  if (balance < AGENT_TOKEN_GRANT / 2) {
+    await fundAgent(mintAddress, owner, AGENT_TOKEN_GRANT - balance);
+    return AGENT_TOKEN_GRANT;
+  }
+  return balance;
+}
+
+async function bootstrapOnce(): Promise<void> {
+  const { treasury, providers } = await wallets();
 
   await ensureTreasurySol(treasury);
   const mintAddress = await ensureMint(treasury);
 
-  // Payees, plus the treasury's own account, must exist before anyone transfers.
   await ensureAta(treasury, mintAddress, treasury.publicKey);
-  const agentAta = await ensureAta(treasury, mintAddress, agent.publicKey);
-
   for (const service of ALL_SERVICES) {
     const provider = providers.get(service.id);
     if (!provider) throw new Error(`no provider wallet for service ${service.id}`);
     await ensureAta(treasury, mintAddress, provider.publicKey);
   }
 
-  const agentTokens = await readTokenBalance(agentAta);
-  if (agentTokens < AGENT_TOKEN_GRANT / 2) {
-    await fundAgent(mintAddress, AGENT_TOKEN_GRANT - agentTokens);
-  }
+  // A fresh install starts with the demo agent so the machine can be tried
+  // before anyone signs up.
+  const demo = await ensureDemoAgent();
+  await provisionAgent(demo, mintAddress);
 
   const state = await getState();
   await patchState({ bootstrapCount: state.bootstrapCount + 1 });
-
-  return snapshot();
 }
 
 /** Idempotent, serialised setup. Safe to call on every page load. */
-export function bootstrap(): Promise<ChainSnapshot> {
+export function bootstrap(): Promise<void> {
   if (!globalForBootstrap.__stipendBootstrap) {
     globalForBootstrap.__stipendBootstrap = withStoreLock(bootstrapOnce).catch((error) => {
       globalForBootstrap.__stipendBootstrap = undefined;
@@ -177,16 +191,19 @@ export function bootstrap(): Promise<ChainSnapshot> {
   return globalForBootstrap.__stipendBootstrap;
 }
 
-/** Fresh read of everything the UI shows. No writes. */
-export async function snapshot(): Promise<ChainSnapshot> {
-  const { treasury, agent, providers } = await wallets();
+/** Fresh read of everything the UI shows for one agent. No writes. */
+export async function snapshot(agentId?: string | null): Promise<ChainSnapshot> {
+  const { treasury, providers } = await wallets();
   const state = await getState();
   if (!state.mint) throw new Error('devnet not bootstrapped yet');
 
+  const agent = await pickAgent(agentId);
   const mintAddress = new PublicKey(state.mint);
+  const agentOwner = publicKeyOf(agent);
+
   const [treasuryTokens, agentTokens, treasurySol] = await Promise.all([
     tokenBalanceOf(mintAddress, treasury.publicKey),
-    tokenBalanceOf(mintAddress, agent.publicKey),
+    tokenBalanceOf(mintAddress, agentOwner),
     solBalance(treasury.publicKey),
   ]);
 
@@ -212,31 +229,38 @@ export async function snapshot(): Promise<ChainSnapshot> {
       sol: treasurySol / 1_000_000_000,
       tokensRaw: treasuryTokens,
     },
-    agent: { address: agent.publicKey.toBase58(), tokensRaw: agentTokens },
+    agent: {
+      id: agent.id,
+      name: agent.name,
+      address: agentOwner.toBase58(),
+      tokensRaw: agentTokens,
+    },
     providers: providerBalances,
-    policy: state.policy,
+    policy: agent.policy,
     ready: agentTokens >= 10_000,
   };
 }
 
-export const fmt = (baseUnits: number): string => (baseUnits / ONE_TOKEN).toFixed(2);
-
 const globalForSnapshot = globalThis as unknown as {
-  __stipendSnapshotCache?: { at: number; value: ChainSnapshot };
+  __stipendSnapshotCache?: Map<string, { at: number; value: ChainSnapshot }>;
 };
 
 /**
- * Read-only snapshot with a short TTL. The UI polls, and devnet's public RPC
- * does not need a balance query per render.
+ * Read-only snapshot with a short TTL, keyed by agent. The UI polls, and
+ * devnet's public RPC does not need a balance query per render.
  */
-export async function liveSnapshot(ttlMs = 1500): Promise<ChainSnapshot> {
-  const cached = globalForSnapshot.__stipendSnapshotCache;
+export async function liveSnapshot(agentId?: string | null, ttlMs = 1500): Promise<ChainSnapshot> {
+  const key = agentId ?? 'default';
+  const cache = (globalForSnapshot.__stipendSnapshotCache ??= new Map());
+  const cached = cache.get(key);
   if (cached && Date.now() - cached.at < ttlMs) return cached.value;
-  const value = await snapshot();
-  globalForSnapshot.__stipendSnapshotCache = { at: Date.now(), value };
+  const value = await snapshot(agentId);
+  cache.set(key, { at: Date.now(), value });
   return value;
 }
 
 export function invalidateSnapshot(): void {
   globalForSnapshot.__stipendSnapshotCache = undefined;
 }
+
+export { addressOf, getAgent };
