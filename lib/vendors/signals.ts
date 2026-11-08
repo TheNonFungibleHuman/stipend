@@ -99,11 +99,13 @@ const toSignal = (hit: AlgoliaHit): Signal => ({
  * merged so the answer is current but still anchored in the threads that got
  * attention.
  */
-async function search(query: string, timeoutMs = 7_000): Promise<Signal[]> {
+async function search(query: string, goal: string, timeoutMs = 7_000): Promise<Signal[]> {
   const cutoff = Math.floor((Date.now() - 540 * 24 * 60 * 60 * 1000) / 1000);
   const [recent, relevant] = await Promise.all([
     fetchHits('search_by_date', query, { numericFilters: `created_at_i>${cutoff}` }, timeoutMs).catch(() => []),
-    fetchHits('search', query, {}, timeoutMs).catch(() => []),
+    // The relevance endpoint matches a phrase far better than a bag of keywords,
+    // so it gets the question as asked; the date endpoint gets the keywords.
+    fetchHits('search', goal.slice(0, 120), {}, timeoutMs).catch(() => []),
   ]);
 
   const seen = new Set<string>();
@@ -162,7 +164,7 @@ export async function fetchSignals(goal: string): Promise<SignalResult> {
   const batches = await Promise.all(
     queries.map(async (query) => {
       try {
-        return await search(query);
+        return await search(query, goal);
       } catch (error) {
         failures.push(error instanceof Error ? error.message : String(error));
         return [] as Signal[];

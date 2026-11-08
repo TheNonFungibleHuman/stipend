@@ -6,7 +6,7 @@ import { spentToday } from '@/lib/agent';
 import { tokenBalanceOf } from '@/lib/bootstrap';
 import { serviceById } from '@/lib/config';
 import { settle } from '@/lib/pay';
-import { evaluate } from '@/lib/policy';
+import { cardFeeFor, evaluate } from '@/lib/policy';
 import { appendLedger, getLedger, getState } from '@/lib/store';
 import { wallets } from '@/lib/wallets';
 
@@ -89,7 +89,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   try {
-    const runId = parsed.data.runId ?? 'external';
+    // Each external purchase is its own record, not one growing "external" run.
+    const runId = parsed.data.runId ?? `ext-${Date.now().toString(36)}`;
     const { signature, settleMs } = await settle({
       serviceId: definition.id,
       price: definition.price,
@@ -110,6 +111,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }),
       'utf8',
     ).toString('base64');
+
+    // A settled purchase has to be recorded, or the console shows nothing and
+    // the daily budget never counts it. This route is the path every external
+    // agent and the MCP server use, so it is the one that must not forget.
+    await appendLedger({
+      id: `${caller.id}-${Date.now()}`,
+      runId,
+      agentId: caller.id,
+      at: new Date().toISOString(),
+      serviceId: definition.id,
+      serviceName: definition.name,
+      price: definition.price,
+      decision: 'settled',
+      signature,
+      settleMs,
+      agentBalanceAfter: balance - definition.price,
+      cardFee: cardFeeFor(definition.price),
+    });
 
     return NextResponse.json({
       header,
