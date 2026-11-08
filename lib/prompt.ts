@@ -20,9 +20,14 @@ export function agentPrompt(input: { origin: string; token: string }): string {
 
 2. You will get four tools: agent_status, buy_signals, buy_notes, buy_brief.
 3. Call agent_status first so you know my remaining budget.
-4. Every purchase costs a few cents from my Stipend wallet, not from a card.
-   If a purchase is refused, stop and tell me the reason. Do not retry it.
-5. After buying, tell me what it cost and give me the receipt link.`;
+4. Write queries as two to four concrete words, like a search box:
+   "AI coding assistant pricing" works; "what is the best way to price an AI coding
+   assistant" works badly. The service searches public discussion, so keywords beat sentences.
+5. Before spending on notes or a brief, read the thread titles buy_signals returned.
+   If they are not about my question, stop and tell me. Do not buy the next step.
+6. If buy_signals finds nothing useful, reword the query once and try again. Then stop.
+7. Every purchase costs a few cents from my Stipend wallet, not from a card.
+   After buying, tell me what it cost and give me the receipt link.`;
 }
 
 export function agentConfig(input: { origin: string; token: string }): string {
