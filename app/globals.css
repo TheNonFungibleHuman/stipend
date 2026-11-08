@@ -1576,6 +1576,17 @@ input[type='range']:disabled {
   color: var(--silk-faint);
 }
 
+.wire__link {
+  color: var(--lamp-warn);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+.wire__link:hover {
+  color: var(--silk);
+}
+
 /* machined hardware details */
 
 .knob__scale {

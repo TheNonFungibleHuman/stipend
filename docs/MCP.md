@@ -19,32 +19,47 @@ produced** — the money genuinely does not move.
 
 ## Install
 
-The server is a single file with no dependencies. Download it from whichever deployment you are
-using — no clone required:
+Nothing to download. The tools are a **remote MCP server** on the deployment itself, authenticated
+with your agent's owner token.
 
-```bash
-curl -fsSL https://stipend-delta.vercel.app/stipend-mcp.mjs -o stipend-mcp.mjs
-```
-
-It needs three environment variables from the console (Agent panel):
-
-```bash
-STIPEND_URL=https://stipend-delta.vercel.app
-STIPEND_AGENT_ID=<agent id>
-STIPEND_AGENT_TOKEN=<stp_...>
+```text
+URL:    https://stipend-delta.vercel.app/api/mcp
+Header: Authorization: Bearer stp_...
 ```
 
 ### Claude Code
 
 ```bash
-claude mcp add stipend --scope project \
-  --env STIPEND_URL=https://stipend-delta.vercel.app \
-  --env STIPEND_AGENT_ID=<agent id> \
-  --env STIPEND_AGENT_TOKEN=<token> \
-  -- node /absolute/path/to/stipend-mcp.mjs
+claude mcp add --transport http stipend https://stipend-delta.vercel.app/api/mcp \
+  --header "Authorization: Bearer <owner token>"
 ```
 
 ### Any client with a JSON config (Cursor, opencode, Claude Desktop, DSH)
+
+```json
+{
+  "mcpServers": {
+    "stipend": {
+      "url": "https://stipend-delta.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer <owner token>"
+      }
+    }
+  }
+}
+```
+
+The token is the owner key from the console (`/app?token=…`). It authorises spending from **that
+agent's wallet only**, and every call still goes through the policy — a remote server is not a
+weaker guarantee than a local one, because the money moves on chain either way.
+
+### If your client only speaks stdio
+
+A single-file, dependency-free server is published alongside the app:
+
+```bash
+curl -fsSL https://stipend-delta.vercel.app/stipend-mcp.mjs -o stipend-mcp.mjs
+```
 
 ```json
 {
@@ -55,7 +70,7 @@ claude mcp add stipend --scope project \
       "env": {
         "STIPEND_URL": "https://stipend-delta.vercel.app",
         "STIPEND_AGENT_ID": "<agent id>",
-        "STIPEND_AGENT_TOKEN": "<token>"
+        "STIPEND_AGENT_TOKEN": "<stp_...>"
       }
     }
   }

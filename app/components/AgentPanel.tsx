@@ -41,21 +41,14 @@ export function AgentPanel({ agent, snapshot, baseUrl, readOnly, onFund, funding
   const ownerUrl = `${origin}/app?token=${agent.token}`;
   const viewUrl = `${origin}/app?view=${agent.viewToken}`;
 
-  const prompt = `Add a tool server called "stipend" to my MCP configuration.
+  const prompt = `Add a remote MCP server called "stipend" to my MCP configuration.
 
-1. Download the server first:
-   curl -fsSL ${origin}/stipend-mcp.mjs -o stipend-mcp.mjs
+URL: ${origin}/api/mcp
+Transport: streamable HTTP
+Header: Authorization: Bearer ${agent.token}
 
-2. Register it with the absolute path of the file you just saved:
-   Transport: stdio
-   Command: node
-   Args: ["<absolute path to stipend-mcp.mjs>"]
-   Environment:
-     STIPEND_URL=${baseUrl}
-     STIPEND_AGENT_ID=${agent.id}
-     STIPEND_AGENT_TOKEN=${agent.token}
-
-It provides four tools: agent_status, buy_signals, buy_notes, buy_brief.
+Nothing to install and no file to download. It provides four tools: agent_status,
+buy_signals, buy_notes, buy_brief.
 Call agent_status first when you are unsure about budget. Use buy_signals when I ask what
 people are currently saying about a topic. Each paid call costs a few cents from my agent
 wallet and is capped by a policy I control; if a call is refused, do not retry it — report
@@ -64,12 +57,9 @@ the refusal reason instead.`;
   const config = `{
   "mcpServers": {
     "stipend": {
-      "command": "node",
-      "args": ["/absolute/path/to/stipend-mcp.mjs"],
-      "env": {
-        "STIPEND_URL": "${baseUrl}",
-        "STIPEND_AGENT_ID": "${agent.id}",
-        "STIPEND_AGENT_TOKEN": "${agent.token}"
+      "url": "${origin}/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${agent.token}"
       }
     }
   }
@@ -232,18 +222,22 @@ const { output, receipt } = await paid.json();`;
 
         {tab === 'prompt' && (
           <p className="wire__note">
-            Give this to Claude Code, Cursor, opencode or any tool-capable agent and it will install
-            the tool server itself. It exposes <span className="mono">buy_signals</span>,{' '}
+            Give this to Claude Code, Cursor, opencode or any tool-capable agent. There is nothing to
+            install: the tools are served over HTTP from this deployment, and your agent token is the
+            only credential. It exposes <span className="mono">buy_signals</span>,{' '}
             <span className="mono">buy_notes</span>, <span className="mono">buy_brief</span> and{' '}
             <span className="mono">agent_status</span> — the 402 handshake happens inside the server,
-            so your agent just sees a tool result and a receipt.
+            so your agent just sees a tool result and a receipt. If your client only speaks stdio,{' '}
+            <a className="wire__link" href="/stipend-mcp.mjs" download>
+              download the single-file server
+            </a>{' '}
+            instead.
           </p>
         )}
         {tab === 'config' && (
           <p className="wire__note">
-            Paste into the client&apos;s MCP config. The server is one dependency-free file:
-            it makes no network calls except to <span className="mono">STIPEND_URL</span>, and holds
-            no keys.
+            Paste into the client&apos;s MCP config. This is a remote server: no command, no path, no
+            package to install. The bearer token authorises spending from this wallet only.
           </p>
         )}
         {tab === 'http' && (
