@@ -6,7 +6,7 @@ An agent that buys data with your card is an agent you cannot audit. Stipend giv
 spending policy checked between the price quote and the signature, and a receipt for every purchase
 that settles on Solana devnet in about a tenth of a second.
 
-**[Open the console](/#open-the-console)** · **[Documentation](/docs)** · **[Create an agent](/start)**
+**Live: [https://stipend-delta.vercel.app](https://stipend-delta.vercel.app)** · **[Documentation](https://stipend-delta.vercel.app/docs)** · **[Create an agent](https://stipend-delta.vercel.app/start)**
 
 ---
 

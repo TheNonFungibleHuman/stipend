@@ -177,7 +177,10 @@ export default function Console({
     agents.find((agent) => agent.id === snapshot?.agent.id);
   const running = run?.status === 'running';
   const refusedCount = ledger.filter((entry) => entry.decision === 'refused').length;
-  const baseUrl = typeof window === 'undefined' ? 'http://127.0.0.1:4310' : window.location.origin;
+  const baseUrl =
+    typeof window === 'undefined'
+      ? process.env.NEXT_PUBLIC_APP_URL ?? 'https://stipend-delta.vercel.app'
+      : window.location.origin;
 
   return (
     <main className="cabinet">

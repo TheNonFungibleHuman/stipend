@@ -27,6 +27,7 @@ export function Onboard() {
   const [error, setError] = useState<string | null>(null);
   const [funded, setFunded] = useState<number | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
 
   const create = async () => {
     setBusy(true);
@@ -251,7 +252,7 @@ export function Onboard() {
           </div>
 
           <pre className="wire__body">{`# the agent asks a vendor for data
-curl -X POST http://127.0.0.1:4310/api/paid/market-intel \\
+curl -X POST ${origin}/api/paid/market-intel \\
   -H "x-agent-token: ${agent.token}" \\
   -H "content-type: application/json" \\
   -d '{"query":"ai observability pricing"}'`}</pre>

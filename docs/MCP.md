@@ -23,7 +23,7 @@ The server is a single file with no dependencies: `mcp/stipend-mcp.mjs`. It need
 environment variables from the console (Agent panel):
 
 ```bash
-STIPEND_URL=http://127.0.0.1:4310
+STIPEND_URL=https://stipend-delta.vercel.app
 STIPEND_AGENT_ID=<agent id>
 STIPEND_AGENT_TOKEN=<stp_...>
 ```
@@ -32,7 +32,7 @@ STIPEND_AGENT_TOKEN=<stp_...>
 
 ```bash
 claude mcp add stipend --scope project \
-  --env STIPEND_URL=http://127.0.0.1:4310 \
+  --env STIPEND_URL=https://stipend-delta.vercel.app \
   --env STIPEND_AGENT_ID=<agent id> \
   --env STIPEND_AGENT_TOKEN=<token> \
   -- node /absolute/path/to/mcp/stipend-mcp.mjs
@@ -47,7 +47,7 @@ claude mcp add stipend --scope project \
       "command": "node",
       "args": ["/absolute/path/to/mcp/stipend-mcp.mjs"],
       "env": {
-        "STIPEND_URL": "http://127.0.0.1:4310",
+        "STIPEND_URL": "https://stipend-delta.vercel.app",
         "STIPEND_AGENT_ID": "<agent id>",
         "STIPEND_AGENT_TOKEN": "<token>"
       }

@@ -8,7 +8,7 @@
  * just sees a normal tool result.
  *
  * env:
- *   STIPEND_URL           default http://127.0.0.1:4310
+ *   STIPEND_URL           default http://127.0.0.1:4310 (hosted: https://stipend-delta.vercel.app)
  *   STIPEND_AGENT_ID      the agent id from the console
  *   STIPEND_AGENT_TOKEN   that agent's API token
  *
