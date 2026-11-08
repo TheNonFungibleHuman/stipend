@@ -367,7 +367,7 @@ export default function Console({
           )}
 
           {isDemo && <RunsTable runs={data.runSummaries ?? []} />}
-          {isDemo && active && (
+          {active && (
             <AgentPanel
               agent={active}
               snapshot={snapshot}
