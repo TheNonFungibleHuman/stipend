@@ -181,6 +181,8 @@ export interface StartRunInput {
   goal: string;
   mode?: Run['mode'];
   baseUrl: string;
+  /** Client-chosen id, so progress can be polled while the request is still open. */
+  runId?: string;
 }
 
 /**
@@ -201,7 +203,7 @@ export type RunEmit = (run: Run) => void;
 export async function startRun(input: StartRunInput, emit?: RunEmit): Promise<Run> {
   const agent = await pickAgent(input.agentId);
   const run: Run = {
-    id: randomUUID().slice(0, 8),
+    id: input.runId ?? randomUUID().slice(0, 8),
     agentId: agent.id,
     agentName: agent.name,
     goal: input.goal,

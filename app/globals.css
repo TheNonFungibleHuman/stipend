@@ -782,6 +782,7 @@ a:hover {
 /* ---------------- job tickets (run steps) ---------------- */
 
 .jobs {
+  min-height: 92px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -790,6 +791,7 @@ a:hover {
 }
 
 .job {
+  animation: rowIn 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
   position: relative;
   padding: 13px 14px 14px;
   border: 1px solid rgba(223, 231, 226, 0.16);
@@ -812,6 +814,11 @@ a:hover {
 .job--error {
   border-color: rgba(255, 138, 92, 0.4);
   background: linear-gradient(180deg, rgba(178, 55, 18, 0.2), rgba(0, 0, 0, 0.22));
+}
+
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
 }
 
 .job__head {

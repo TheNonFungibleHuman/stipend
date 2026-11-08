@@ -11,6 +11,7 @@ const schema = z.object({
   goal: z.string().min(3).max(400),
   mode: z.enum(['normal', 'rogue']).optional(),
   agentId: z.string().min(1).max(64).optional(),
+  runId: z.string().min(4).max(32).optional(),
 });
 
 export async function GET(request: Request) {
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
             goal: parsed.data.goal,
             mode: parsed.data.mode,
             baseUrl: origin,
+            runId: parsed.data.runId,
           },
           (snapshot) => send({ type: 'run', run: snapshot }),
         );

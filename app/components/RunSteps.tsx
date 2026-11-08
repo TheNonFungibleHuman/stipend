@@ -83,7 +83,11 @@ export function RunSteps({ run }: { run: Run | null }) {
         </div>
       )}
 
-      {done.length === 0 && !current && <p className="empty-row">No run yet.</p>}
+      {done.length === 0 && !current && (
+        <p className="empty-row">
+          {run.status === 'running' ? 'starting the run…' : 'Nothing was bought.'}
+        </p>
+      )}
 
       <ol className="jobs">
         {done.map((step) => {

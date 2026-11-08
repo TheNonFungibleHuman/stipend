@@ -119,51 +119,86 @@ export default function Console({
    * moment it changes. That is the difference between "something is happening"
    * and a spinner that sits there for twelve seconds.
    */
+  /**
+   * Progress comes from polling a persisted run, not from reading the response.
+   *
+   * A serverless platform buffers the response body until the function returns,
+   * so every streamed event used to arrive at the end: the panel sat on "no run
+   * yet" and then every step appeared at once. The server writes the run to the
+   * store after each step, so the client can ask for it while the request is
+   * still open and watch it move.
+   */
   const startRun = async (mode: 'normal' | 'rogue') => {
     setBusy(mode);
     setActionError(null);
+
+    const runId = (
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : String(Date.now())
+    ).slice(0, 8);
+
+    // Show the run immediately, before the first poll comes back.
+    setRun({
+      id: runId,
+      agentId: agentId ?? '',
+      agentName: active?.name ?? '',
+      goal,
+      mode,
+      status: 'running',
+      startedAt: new Date().toISOString(),
+      policy: policy ?? { perCallCap: 0, dailyCap: 0, allowlist: [] },
+      engine: data?.llm?.label ?? '',
+      steps: [],
+      spend: 0,
+      refused: 0,
+    } as Run);
+
+    const readRun = async (): Promise<Run | null> => {
+      try {
+        const response = await fetch(`/api/run/${runId}`, {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!response.ok) return null;
+        const json = (await response.json()) as { run?: Run };
+        return json.run ?? null;
+      } catch {
+        return null;
+      }
+    };
+
+    let settled = false;
+    const poller = (async () => {
+      for (let attempt = 0; attempt < 150 && !settled; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        if (settled) break;
+        const live = await readRun();
+        if (live) setRun(live);
+      }
+    })();
+
     try {
       const response = await fetch('/api/run', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ goal, mode, agentId }),
+        body: JSON.stringify({ goal, mode, agentId, runId }),
       });
 
-      if (!response.ok || !response.body) {
+      if (!response.ok) {
         const json = (await response.json().catch(() => ({}))) as { error?: string };
         throw new Error(json.error ?? `run rejected (${response.status})`);
       }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        let index: number;
-        while ((index = buffer.indexOf('\n')) >= 0) {
-          const line = buffer.slice(0, index).trim();
-          buffer = buffer.slice(index + 1);
-          if (!line) continue;
-
-          const event = JSON.parse(line) as
-            | { type: 'run'; run: Run }
-            | { type: 'done'; run: Run }
-            | { type: 'error'; message: string };
-
-          if (event.type === 'error') throw new Error(event.message);
-          if (event.type === 'run' || event.type === 'done') setRun(event.run);
-        }
-      }
-
-      await loadState(true);
+      await response.text();
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : 'run did not start');
     } finally {
+      settled = true;
+      await poller;
+      const final = await readRun();
+      if (final) setRun(final);
       setBusy(null);
+      void loadState(true);
     }
   };
 
