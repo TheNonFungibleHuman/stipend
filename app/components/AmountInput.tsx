@@ -26,7 +26,7 @@ export function AmountInput({
   label,
   value,
   onChange,
-  quick = [50_000, 100_000, 500_000, 1_000_000],
+  quick = [100_000, 500_000, 1_000_000, 5_000_000],
   hint,
   disabled,
   max = 1_000_000_000_000,

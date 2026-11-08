@@ -12,8 +12,8 @@ interface Props {
 }
 
 export function LimitsEditor({ policy, onApply, disabled }: Props) {
-  const [perCall, setPerCall] = useState(policy?.perCallCap ?? 100_000);
-  const [daily, setDaily] = useState(policy?.dailyCap ?? 1_000_000);
+  const [perCall, setPerCall] = useState(policy?.perCallCap ?? 1_000_000);
+  const [daily, setDaily] = useState(policy?.dailyCap ?? 5_000_000);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {

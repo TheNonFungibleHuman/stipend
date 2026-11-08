@@ -90,8 +90,8 @@ export interface Policy {
 }
 
 export const DEFAULT_POLICY: Policy = {
-  perCallCap: 100_000, // $0.10
-  dailyCap: 1_000_000, // $1.00
+  perCallCap: 1_000_000, // $1.00 a call
+  dailyCap: 5_000_000, // $5.00 a day
   allowlist: [],
 };
 

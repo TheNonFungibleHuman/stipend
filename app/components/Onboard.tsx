@@ -19,8 +19,8 @@ export function Onboard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [name, setName] = useState('Atlas');
-  const [perCall, setPerCall] = useState(100_000);
-  const [daily, setDaily] = useState(1_000_000);
+  const [perCall, setPerCall] = useState(1_000_000);
+  const [daily, setDaily] = useState(5_000_000);
   const [allowlist, setAllowlist] = useState<string[]>([]);
   const [agent, setAgent] = useState<PublicAgent | null>(null);
   const [busy, setBusy] = useState(false);
