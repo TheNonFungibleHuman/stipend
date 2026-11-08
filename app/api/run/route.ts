@@ -15,7 +15,7 @@ const schema = z.object({
 
 export async function GET(request: Request) {
   const agentId = new URL(request.url).searchParams.get('agent') ?? undefined;
-  return NextResponse.json({ runs: listRuns(agentId) });
+  return NextResponse.json({ runs: await listRuns(agentId) });
 }
 
 /** Starts a run. Returns immediately; the client polls /api/run/[id]. */

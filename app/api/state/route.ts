@@ -83,7 +83,7 @@ export async function GET(request: Request) {
       (entry) => entry.agentId === snapshot.agent.id || entry.agentId === undefined,
     );
     const agents = await allAgents();
-    const live = listRuns(snapshot.agent.id);
+    const live = await listRuns(snapshot.agent.id);
 
     return NextResponse.json({
       ok: true,

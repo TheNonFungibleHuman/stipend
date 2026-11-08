@@ -6,6 +6,7 @@ import { serviceById, type Policy } from './config';
 import { llmLabel } from './llm';
 import { paidCall, type Quote } from './pay';
 import { cardFeeFor } from './policy';
+import { readDocument, writeDocument } from './persist';
 import { appendLedger, getLedger, getState, type LedgerEntry } from './store';
 import { wallets } from './wallets';
 
@@ -55,6 +56,25 @@ const globalForRuns = globalThis as unknown as { __stipendRuns?: Map<string, Run
 function runs(): Map<string, Run> {
   if (!globalForRuns.__stipendRuns) globalForRuns.__stipendRuns = new Map();
   return globalForRuns.__stipendRuns;
+}
+
+/**
+ * Runs are persisted, not just held in memory.
+ *
+ * A serverless host has no shared process: the request that starts a run and the
+ * request that polls it can land on different instances. Keeping runs in a Map
+ * meant the poll never found the run and the console waited forever.
+ */
+const RUNS_KEY = 'runs';
+
+async function persistRuns(): Promise<void> {
+  const all = [...runs().values()].slice(-20);
+  await writeDocument(RUNS_KEY, { runs: all });
+}
+
+async function loadPersistedRuns(): Promise<Run[]> {
+  const stored = await readDocument<{ runs?: Run[] }>(RUNS_KEY, {});
+  return Array.isArray(stored.runs) ? stored.runs : [];
 }
 
 export interface RunSummary {
@@ -120,12 +140,20 @@ export function mergeSummaries(summaries: RunSummary[], live: Run[]): RunSummary
   return [...merged.values()].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
 }
 
-export function getRun(id: string): Run | undefined {
-  return runs().get(id);
+export async function getRun(id: string): Promise<Run | undefined> {
+  const inMemory = runs().get(id);
+  if (inMemory) return inMemory;
+  const persisted = await loadPersistedRuns();
+  const found = persisted.find((run) => run.id === id);
+  if (found) runs().set(found.id, found);
+  return found;
 }
 
-export function listRuns(agentId?: string): Run[] {
-  const all = [...runs().values()];
+export async function listRuns(agentId?: string): Promise<Run[]> {
+  const persisted = await loadPersistedRuns();
+  const merged = new Map(persisted.map((run) => [run.id, run]));
+  for (const [id, run] of runs()) merged.set(id, run);
+  const all = [...merged.values()];
   return (agentId ? all.filter((run) => run.agentId === agentId) : all).slice(-12).reverse();
 }
 
@@ -159,6 +187,14 @@ export interface StartRunInput {
  * is a real HTTP 402 dance against our own paid endpoints, so what the UI shows
  * is what actually happened on the wire.
  */
+/**
+ * Runs the whole pipeline inside the request and returns the finished run.
+ *
+ * It used to return immediately and execute in the background, with the UI
+ * polling. That cannot work on a serverless host: the background work is killed
+ * when the response is sent, and the poll can land on another instance that has
+ * never heard of the run. Awaiting is slower but correct everywhere.
+ */
 export async function startRun(input: StartRunInput): Promise<Run> {
   const agent = await pickAgent(input.agentId);
   const run: Run = {
@@ -176,11 +212,15 @@ export async function startRun(input: StartRunInput): Promise<Run> {
     refused: 0,
   };
   runs().set(run.id, run);
-  void execute(run, agent, input.baseUrl).catch((error) => {
+  await persistRuns();
+
+  await execute(run, agent, input.baseUrl).catch((error) => {
     run.status = 'error';
     run.error = error instanceof Error ? error.message : String(error);
     run.endedAt = new Date().toISOString();
   });
+
+  await persistRuns();
   return run;
 }
 
@@ -316,6 +356,9 @@ async function execute(run: Run, agent: AgentRecord, baseUrl: string): Promise<v
       step.reason = error instanceof Error ? error.message : String(error);
     } finally {
       step.endedAt = new Date().toISOString();
+      // Persist after every step: if the function is killed mid-run, the record
+      // shows how far it got instead of hanging in "running".
+      await persistRuns();
     }
   }
 

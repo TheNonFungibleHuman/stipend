@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const run = getRun(id);
+  const run = await getRun(id);
   if (!run) return NextResponse.json({ error: 'unknown run' }, { status: 404 });
   return NextResponse.json({ run });
 }

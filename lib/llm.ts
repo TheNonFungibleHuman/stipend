@@ -161,28 +161,36 @@ export async function complete(args: {
     return null;
   }
   const started = Date.now();
-  try {
-    const text = await config.call({
-      system: args.system,
-      user: args.user,
-      maxTokens: args.maxTokens ?? 700,
-      model: config.model,
-      key: config.key,
-    });
-    const trimmed = text.trim();
-    if (!trimmed) {
-      lastError = 'model returned an empty response';
-      return null;
+
+  // A dropped connection should not silently downgrade a paid step. One retry
+  // covers the transient case; anything persistent is reported in the note.
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const text = await config.call({
+        system: args.system,
+        user: args.user,
+        maxTokens: args.maxTokens ?? 700,
+        model: config.model,
+        key: config.key,
+      });
+      const trimmed = text.trim();
+      if (!trimmed) {
+        lastError = 'model returned an empty response';
+        return null;
+      }
+      lastError = null;
+      return {
+        text: trimmed,
+        provider: config.name,
+        model: prettyModel(config.model),
+        ms: Date.now() - started,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+      const transient = /fetch failed|ECONNRESET|timeout|aborted|socket/i.test(lastError);
+      if (!transient || attempt === 2) return null;
+      await new Promise((resolve) => setTimeout(resolve, 400));
     }
-    lastError = null;
-    return {
-      text: trimmed,
-      provider: config.name,
-      model: prettyModel(config.model),
-      ms: Date.now() - started,
-    };
-  } catch (error) {
-    lastError = error instanceof Error ? error.message : String(error);
-    return null;
   }
+  return null;
 }
