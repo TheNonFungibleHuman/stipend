@@ -40,9 +40,20 @@ export default function Landing() {
         </Link>
         <div className="plate__right">
           <span className="lamp lamp--live">devnet</span>
-          <Link className="plate__meta plate__link" href="/app">
-            open the console →
-          </Link>
+          <nav className="nav" aria-label="Main">
+            <Link className="nav__link" href="/docs">
+              Docs
+            </Link>
+            <Link className="nav__link" href="#how-it-works">
+              How it works
+            </Link>
+            <Link className="nav__link" href="#faq">
+              FAQ
+            </Link>
+            <Link className="nav__cta" href="/app">
+              Console →
+            </Link>
+          </nav>
         </div>
       </header>
 
@@ -159,7 +170,9 @@ POST /api/agents/<id>/authorize
       </Reveal>
 
       <Reveal delay={60}>
-        <HowItWorks />
+        <div id="how-it-works">
+          <HowItWorks />
+        </div>
       </Reveal>
 
       <Proof />
@@ -182,7 +195,9 @@ POST /api/agents/<id>/authorize
         </div>
       </Reveal>
 
-      <Faq />
+      <div id="faq">
+        <Faq />
+      </div>
 
       <Reveal className="closing">
         <div>

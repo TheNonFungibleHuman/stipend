@@ -18,11 +18,14 @@ const DEFAULT_GOAL =
 
 export default function Console({
   initialAgentId,
+  initialToken,
   mcpPath,
 }: {
   initialAgentId?: string;
+  initialToken?: string;
   mcpPath: string;
 }) {
+  const readOnly = Boolean(initialToken);
   const [data, setData] = useState<StateResponse | null>(null);
   const [run, setRun] = useState<Run | null>(null);
   const [goal, setGoal] = useState(DEFAULT_GOAL);
@@ -38,7 +41,8 @@ export default function Console({
     try {
       const query = new URLSearchParams();
       if (refresh) query.set('refresh', '1');
-      if (activeId.current) query.set('agent', activeId.current);
+      if (readOnly) query.set('token', initialToken!);
+      else if (activeId.current) query.set('agent', activeId.current);
       const response = await fetch(`/api/state?${query.toString()}`, { cache: 'no-store' });
       const json = (await response.json()) as StateResponse;
       failures.current = 0;
@@ -175,8 +179,9 @@ export default function Console({
         </Link>
         <div className="plate__right">
           <span className="lamp lamp--live">devnet</span>
+          {readOnly && <span className="lamp lamp--warn">shared view</span>}
           {data.fixture && <span className="lamp lamp--warn">recorded session</span>}
-          {agents.length > 0 && (
+          {!readOnly && agents.length > 0 && (
             <label className="selector">
               <span className="selector__label">Agent</span>
               <select
@@ -193,8 +198,8 @@ export default function Console({
               </select>
             </label>
           )}
-          <Link className="plate__meta plate__link" href="/start">
-            + new agent
+          <Link className="plate__meta plate__link" href={readOnly ? '/' : '/start'}>
+            {readOnly ? 'what is this? →' : '+ new agent'}
           </Link>
         </div>
       </header>
@@ -235,14 +240,16 @@ export default function Console({
               <button
                 className="key key--go"
                 onClick={() => void startRun('normal')}
-                disabled={running || busy !== null}
+                disabled={running || busy !== null || readOnly}
+                title={readOnly ? 'read-only shared view' : undefined}
               >
                 {busy === 'normal' || running ? 'Running…' : 'Run pipeline'}
               </button>
               <button
                 className="key key--stop"
                 onClick={() => void startRun('rogue')}
-                disabled={running || busy !== null}
+                disabled={running || busy !== null || readOnly}
+                title={readOnly ? 'read-only shared view' : undefined}
               >
                 Test refusal
               </button>
@@ -258,6 +265,7 @@ export default function Console({
               snapshot={snapshot}
               baseUrl={baseUrl}
               mcpPath={mcpPath}
+              readOnly={readOnly}
               onFund={() => void fundAgent()}
               funding={busy !== null}
             />
@@ -273,7 +281,7 @@ export default function Console({
             refusedCount={refusedCount}
             agentName={snapshot?.agent.name}
           />
-          <LimitsEditor policy={policy} onApply={applyPolicy} disabled={running} />
+          <LimitsEditor policy={policy} onApply={applyPolicy} disabled={running || readOnly} />
         </aside>
       </div>
 

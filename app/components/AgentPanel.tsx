@@ -9,6 +9,7 @@ interface Props {
   snapshot?: ChainSnapshot;
   baseUrl: string;
   mcpPath: string;
+  readOnly?: boolean;
   onFund?: () => void;
   funding?: boolean;
 }
@@ -34,9 +35,10 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 }
 
 /** Identity, funding, and the three ways to hand this agent to a real runtime. */
-export function AgentPanel({ agent, snapshot, baseUrl, mcpPath, onFund, funding }: Props) {
+export function AgentPanel({ agent, snapshot, baseUrl, mcpPath, readOnly, onFund, funding }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [tab, setTab] = useState<'prompt' | 'config' | 'http'>('prompt');
+  const shareUrl = typeof window === 'undefined' ? '' : `${window.location.origin}/app?token=${agent.token}`;
 
   const prompt = `Add a tool server called "stipend" to my MCP configuration.
 
@@ -121,11 +123,17 @@ const { output, receipt } = await paid.json();`;
         <div>
           <dt>API token</dt>
           <dd className="facts__mono">
-            {revealed ? agent.token : `${agent.token.slice(0, 7)}${'•'.repeat(12)}`}
-            <button className="switch" onClick={() => setRevealed((value) => !value)}>
-              {revealed ? 'Hide' : 'Reveal'}
-            </button>
-            <CopyButton value={agent.token} label="Copy" />
+            {readOnly ? (
+              <span className="agentpanel__muted">hidden in a shared view</span>
+            ) : (
+              <>
+                {revealed ? agent.token : `${agent.token.slice(0, 7)}${'•'.repeat(12)}`}
+                <button className="switch" onClick={() => setRevealed((value) => !value)}>
+                  {revealed ? 'Hide' : 'Reveal'}
+                </button>
+                <CopyButton value={agent.token} label="Copy" />
+              </>
+            )}
           </dd>
         </div>
         <div>
@@ -147,17 +155,35 @@ const { output, receipt } = await paid.json();`;
         </div>
       </dl>
 
-      <div className="agentpanel__fund">
-        <button className="key key--go key--wide" onClick={onFund} disabled={funding || !onFund}>
-          {funding ? 'Funding…' : 'Add 25 dUSD'}
-        </button>
-        <p className="agentpanel__fundnote">
-          Mints demo stablecoin from the treasury into this agent&apos;s wallet. It lands in the
-          ledger as a <span className="mono">funded</span> row, so the balance never changes without
-          a record.
+      {readOnly ? (
+        <p className="agentpanel__readonly">
+          This is a read-only view of one agent. It was opened with that agent&apos;s token, so it
+          can see the balance, the caps and every record — and it cannot spend, edit limits, or see
+          any other agent on this machine.
         </p>
-      </div>
+      ) : (
+        <div className="agentpanel__share">
+          <span className="agentpanel__sharelabel">
+            Share this dashboard — the token is the key, read-only
+          </span>
+          <CopyButton value={shareUrl} label="Copy link" />
+        </div>
+      )}
 
+      {!readOnly && (
+        <div className="agentpanel__fund">
+          <button className="key key--go key--wide" onClick={onFund} disabled={funding || !onFund}>
+            {funding ? 'Funding…' : 'Add 25 dUSD'}
+          </button>
+          <p className="agentpanel__fundnote">
+            Mints demo stablecoin from the treasury into this agent&apos;s wallet. It lands in the
+            ledger as a <span className="mono">funded</span> row, so the balance never changes
+            without a record.
+          </p>
+        </div>
+      )}
+
+      {!readOnly && (
       <div className="agentpanel__wire">
         <div className="agentpanel__tabs" role="tablist" aria-label="How to connect your agent">
           <button
@@ -216,6 +242,7 @@ const { output, receipt } = await paid.json();`;
           </p>
         )}
       </div>
+      )}
     </section>
   );
 }

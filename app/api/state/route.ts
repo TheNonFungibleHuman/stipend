@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { allAgents, toPublic } from '@/lib/agents';
+import { agentByToken, allAgents, toPublic } from '@/lib/agents';
 import { listRuns, mergeSummaries, spentToday, summariesFromLedger } from '@/lib/agent';
 import { bootstrap, FundingRequiredError, liveSnapshot } from '@/lib/bootstrap';
 import { HOSTILE_SERVICE, SERVICES } from '@/lib/config';
@@ -13,7 +13,6 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const refresh = url.searchParams.get('refresh') === '1';
-  const agentId = url.searchParams.get('agent');
   const { treasury } = await wallets();
 
   // Recorded session, for building and reviewing the interface without devnet.
@@ -56,7 +55,22 @@ export async function GET(request: Request) {
 
   try {
     await bootstrap();
-    const snapshot = await liveSnapshot(agentId, refresh ? 0 : 1500);
+
+    // A token in the URL is a read-only capability: it opens exactly one
+    // agent's console and nothing else. This is how a dashboard gets shared.
+    let requested = url.searchParams.get('agent');
+    let readOnly = false;
+    const token = url.searchParams.get('token');
+    if (token) {
+      const owner = await agentByToken(token);
+      if (!owner) {
+        return NextResponse.json({ error: 'that link is not valid' }, { status: 401 });
+      }
+      requested = owner.id;
+      readOnly = true;
+    }
+
+    const snapshot = await liveSnapshot(requested, refresh ? 0 : 1500);
     const ledger = (await getLedger()).filter(
       (entry) => entry.agentId === snapshot.agent.id || entry.agentId === undefined,
     );
@@ -66,6 +80,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       ok: true,
       needsFunding: false,
+      readOnly,
       snapshot,
       policy: snapshot.policy,
       spentToday: spentToday(ledger, snapshot.agent.id),
@@ -75,9 +90,12 @@ export async function GET(request: Request) {
       llm: { configured: llmConfigured(), label: llmLabel() },
       runs: live,
       runSummaries: mergeSummaries(summariesFromLedger(ledger), live),
-      agents: agents.map((agent) =>
-        toPublic(agent, agent.id === snapshot.agent.id ? snapshot.agent.tokensRaw : undefined),
-      ),
+      // A shared view must not leak the other agents on this machine.
+      agents: readOnly
+        ? []
+        : agents.map((agent) =>
+            toPublic(agent, agent.id === snapshot.agent.id ? snapshot.agent.tokensRaw : undefined),
+          ),
       activeAgentId: snapshot.agent.id,
     });
   } catch (error) {

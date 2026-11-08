@@ -6,9 +6,9 @@ export const dynamic = 'force-dynamic';
 export default async function ConsolePage({
   searchParams,
 }: {
-  searchParams: Promise<{ agent?: string }>;
+  searchParams: Promise<{ agent?: string; token?: string }>;
 }) {
-  const { agent } = await searchParams;
+  const { agent, token } = await searchParams;
   const mcpPath = path.join(process.cwd(), 'mcp', 'stipend-mcp.mjs');
-  return <Console initialAgentId={agent} mcpPath={mcpPath} />;
+  return <Console initialAgentId={agent} initialToken={token} mcpPath={mcpPath} />;
 }

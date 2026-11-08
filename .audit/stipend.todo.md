@@ -53,10 +53,26 @@ Status: 4 Build (T5 next)
   always visible (it was being clipped); top-up moved out of the header into the Agent panel as a
   real button with a consequence note; model name shown in the console header; `.switch` controls
   restyled to read as buttons.
+- 2026-11-08 14:05 **Reasoning-budget bug (real AI failure).** `deepseek-flash` is DeepSeek-V4.1-Flash
+  and is a *reasoning* model: reasoning tokens are drawn from `max_tokens`, so the 400-token calls
+  returned empty `content` and silently fell back to the deterministic engine. Fixed: 2,500-token
+  floor, `reasoning_effort: low`, and `llmLastError()` surfaced in the step note so a fallback can
+  never look like a choice.
+- 2026-11-08 14:20 **MCP tool server shipped and proven.** `mcp/stipend-mcp.mjs` (dependency-free,
+  stdio): `agent_status`, `buy_signals`, `buy_notes`, `buy_brief`. Verified with
+  `tools/mcp-smoke.mjs` — initialize, tools/list, and two real purchases ($0.04 + $0.06, one settled
+  in 138ms with an explorer link, notes "written by DeepSeek V4.1 Flash"). Policy also proven through
+  MCP: `refused by policy: would reach $1.04, over the $1.00 daily budget`. Token-authed
+  `/api/agents/:id/status` added so the MCP never reads unauthenticated state. Docs in `docs/MCP.md`.
+- 2026-11-08 14:40 **T13 shared read-only console.** `/app?token=stp_...` resolves one agent from its
+  token and returns `readOnly: true` with other agents hidden; the console disables run, limits and
+  funding, and the Agent panel hides the token itself. Verified: `readOnly=True agentsVisible=0`.
+- 2026-11-08 14:50 **T14 docs site.** `/docs` + seven pages (Introduction, How a payment works,
+  Quickstart, Integration, Policy, Operations, Troubleshooting) with a sticky sidebar, pager and
+  anchored landing nav (Docs · How it works · FAQ · Console). All seven routes 200 and prerendered.
 - 2026-11-08 note: `pnpm dev` cannot hydrate on this machine (a proxy blocks Next's HMR websocket);
   every visual verification runs against `next build && next start`.
 
 ## Next
-- T5: submission writeup + 90-second demo script (README done).
-- Stretch: MCP server so an existing agent (Claude Code, Cursor, opencode, antigravity) can call the
-  paid services through Stipend as a tool.
+- Record the demo (docs/DEMO.md) and paste the submission writeup.
+- Optional: operator sessions so a shared instance can host several people.
