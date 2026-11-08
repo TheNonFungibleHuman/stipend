@@ -1,0 +1,11 @@
+﻿const sig = "xLS1msRUbzSpVh5KNZ2LUTjtyysjiSKaydQXH7KWgoNDZn4QPFUWbpSbVE4ptCoXQP9nKvFcZw7YPFQEDyrYquY";
+const r = await fetch("https://api.devnet.solana.com",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"getTransaction",params:[sig,{encoding:"json",maxSupportedTransactionVersion:0,commitment:"confirmed"}]})});
+const j = await r.json();
+const tx = j.result;
+console.log("found:", !!tx, "err:", tx?.meta?.err, "slot:", tx?.slot);
+const logs = (tx?.meta?.logMessages ?? []).filter(l => l.includes("Memo") || l.includes("stipend"));
+console.log("memo logs:", logs.slice(0,3));
+const post = (tx?.meta?.postTokenBalances ?? []).map(b => `${b.owner?.slice(0,6)}:${b.uiTokenAmount.uiAmountString}`);
+const pre = (tx?.meta?.preTokenBalances ?? []).map(b => `${b.owner?.slice(0,6)}:${b.uiTokenAmount.uiAmountString}`);
+console.log("pre :", pre.join(" | "));
+console.log("post:", post.join(" | "));

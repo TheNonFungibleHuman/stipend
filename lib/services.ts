@@ -69,12 +69,39 @@ export interface ServiceResult {
   computeMs: number;
 }
 
+/**
+ * The caller passes whatever the previous step bought. Never trust its shape:
+ * a summariser output is not a market-intel payload, and a 500 in the middle of
+ * a paid chain is a worse failure than falling back to the known dataset.
+ */
+function asMarketIntel(value: unknown, query: string): MarketIntel {
+  const candidate = value as MarketIntel | null | undefined;
+  if (
+    candidate &&
+    Array.isArray(candidate.competitors) &&
+    candidate.competitors.length > 0 &&
+    typeof candidate.category === 'string'
+  ) {
+    return candidate;
+  }
+  return marketFor(query);
+}
+
+function notesFrom(value: unknown): string[] {
+  const candidate = value as { notes?: unknown } | null | undefined;
+  if (candidate && Array.isArray(candidate.notes)) {
+    return candidate.notes.filter((note): note is string => typeof note === 'string').slice(0, 6);
+  }
+  return [];
+}
+
 export async function runService(
   serviceId: string,
-  context: { query: string; intel?: MarketIntel },
+  context: { query: string; intel?: unknown },
 ): Promise<ServiceResult> {
   const started = Date.now();
-  const intel = context.intel ?? marketFor(context.query);
+  const intel = asMarketIntel(context.intel, context.query);
+  const notes = notesFrom(context.intel);
 
   if (serviceId === 'market-intel') {
     // Buying data: the value is the dataset, so no model is involved.
@@ -115,12 +142,13 @@ export async function runService(
   }
 
   if (serviceId === 'brief-writer') {
+    const source = notes.length > 0 ? `Notes the agent already bought:\n${notes.join('\n')}` : '';
     if (llmConfigured()) {
       const result = await complete({
         system:
           'You write one-page memos for operators. Plain prose, 120 words max, no markdown, no preamble. ' +
           'Open with the recommendation, then the reasoning, then the risk.',
-        user: `Goal: ${context.query}\n\nCompetitor data:\n${JSON.stringify(intel, null, 2)}\n\nWrite the memo.`,
+        user: `Goal: ${context.query}\n\nCompetitor data:\n${JSON.stringify(intel, null, 2)}\n\n${source}\n\nWrite the memo.`,
         maxTokens: 500,
       });
       if (result) {

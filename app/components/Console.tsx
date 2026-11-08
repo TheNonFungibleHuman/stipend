@@ -2,20 +2,21 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Economics } from './Economics';
+import { AgentPanel } from './AgentPanel';
 import { FundingGate } from './FundingGate';
-import { HowItWorks } from './HowItWorks';
+import { LedgerTable } from './LedgerTable';
+import { LimitsEditor } from './LimitsEditor';
 import { MeterHead } from './MeterHead';
-import { PolicyCard } from './PolicyCard';
-import { ReceiptTape } from './ReceiptTape';
-import { RunLedger } from './RunLedger';
+import { RunsTable } from './RunsTable';
+import { RunSteps } from './RunSteps';
+import { StatusStrip } from './StatusStrip';
 import type { Run, StateResponse } from '../types';
 import { shortAddress } from '../types';
 
 const DEFAULT_GOAL =
   'Should we launch usage-based pricing for our AI observability product, and at what price?';
 
-export default function Dashboard({ initialAgentId }: { initialAgentId?: string }) {
+export default function Console({ initialAgentId }: { initialAgentId?: string }) {
   const [data, setData] = useState<StateResponse | null>(null);
   const [run, setRun] = useState<Run | null>(null);
   const [goal, setGoal] = useState(DEFAULT_GOAL);
@@ -38,13 +39,11 @@ export default function Dashboard({ initialAgentId }: { initialAgentId?: string 
       setConnError(null);
       setData(json);
       if (json.activeAgentId && json.activeAgentId !== activeId.current) {
-        // The server resolved a different agent than we asked for.
         activeId.current = json.activeAgentId;
         setAgentId(json.activeAgentId);
       }
       if (json.error) setActionError(json.error);
     } catch {
-      // One dropped poll is normal; only speak up when it repeats.
       failures.current += 1;
       if (failures.current >= 3) {
         setConnError('lost the connection to the local server — is it still running?');
@@ -58,7 +57,6 @@ export default function Dashboard({ initialAgentId }: { initialAgentId?: string 
     return () => clearInterval(timer);
   }, [loadState]);
 
-  // Poll the active run fast enough that settlements read as live, then stop.
   useEffect(() => {
     if (!run || run.status !== 'running') return;
     const id = run.id;
@@ -109,6 +107,19 @@ export default function Dashboard({ initialAgentId }: { initialAgentId?: string 
     }
   };
 
+  const fundAgent = async () => {
+    if (!agentId) return;
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/agents/${agentId}/fund`, { method: 'POST' });
+      const json = (await response.json()) as { error?: string };
+      if (json.error) throw new Error(json.error);
+      await loadState(true);
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : 'top-up failed');
+    }
+  };
+
   const switchAgent = (id: string) => {
     setAgentId(id);
     activeId.current = id;
@@ -141,9 +152,13 @@ export default function Dashboard({ initialAgentId }: { initialAgentId?: string 
   const snapshot = data.snapshot;
   const policy = data.policy ?? snapshot?.policy;
   const ledger = data.ledger ?? [];
+  const agents = data.agents ?? [];
+  const active =
+    agents.find((agent) => agent.id === (agentId ?? data.activeAgentId)) ??
+    agents.find((agent) => agent.id === snapshot?.agent.id);
   const running = run?.status === 'running';
   const refusedCount = ledger.filter((entry) => entry.decision === 'refused').length;
-  const runPrice = (data.services ?? []).reduce((sum, service) => sum + service.price, 0);
+  const baseUrl = typeof window === 'undefined' ? 'http://127.0.0.1:4310' : window.location.origin;
 
   return (
     <main className="cabinet">
@@ -155,141 +170,106 @@ export default function Dashboard({ initialAgentId }: { initialAgentId?: string 
         <div className="plate__right">
           <span className="lamp lamp--live">devnet</span>
           {data.fixture && <span className="lamp lamp--warn">recorded session</span>}
-          {data.agents && data.agents.length > 1 ? (
+          {agents.length > 0 && (
             <label className="selector">
               <span className="selector__label">Agent</span>
               <select
                 className="selector__input"
-                value={agentId ?? data.activeAgentId ?? ''}
+                value={active?.id ?? ''}
                 onChange={(event) => switchAgent(event.target.value)}
               >
-                {data.agents.map((agent) => (
+                {agents.map((agent) => (
                   <option key={agent.id} value={agent.id}>
                     {agent.name}
+                    {agent.demo && !/demo/i.test(agent.name) ? ' (demo)' : ''}
                   </option>
                 ))}
               </select>
             </label>
-          ) : (
-            <span className="plate__meta" title={snapshot?.agent.address}>
-              {snapshot?.agent.name} · {shortAddress(snapshot?.agent.address ?? '')}
-            </span>
           )}
+          <button className="switch" onClick={() => void fundAgent()} disabled={!active}>
+            Top up
+          </button>
           <Link className="plate__meta plate__link" href="/start">
             + new agent
           </Link>
         </div>
       </header>
 
-      <section className="bay">
-        <div>
-          <p className="kicker">Agent payments · settled on Solana devnet</p>
-          <h1 className="thesis">
-            Your agent gets a <em>budget</em>.
-            <br />
-            Not your keys.
-          </h1>
-          <p className="gloss">
-            Stipend gives an AI agent its own wallet and a spending policy that is checked{' '}
-            <strong>before every signature</strong>. It buys the data it needs one call at a time,
-            and each purchase settles on Solana in about half a second.
-          </p>
+      <StatusStrip
+        spentToday={data.spentToday ?? 0}
+        policy={policy}
+        agentTokens={snapshot?.agent.tokensRaw ?? 0}
+        ledger={ledger}
+      />
 
-          <div className="controls">
-            <button
-              className="key key--go"
-              onClick={() => void startRun('normal')}
-              disabled={running || busy !== null}
-            >
-              {busy === 'normal' || running ? 'Running…' : 'Run a research task'}
-              <span className="key__price">${(runPrice / 1_000_000).toFixed(2)}</span>
-            </button>
-            <button
-              className="key key--stop"
-              onClick={() => void startRun('rogue')}
-              disabled={running || busy !== null}
-            >
-              Send it to a $5.00 vendor
-              <span className="key__price">refused</span>
-            </button>
-          </div>
-          {(actionError || connError) && (
-            <p className="hero__error">{actionError ?? connError}</p>
-          )}
+      {(actionError || connError) && (
+        <p className="hero__error">{actionError ?? connError}</p>
+      )}
 
-          <ul className="legend">
-            {data.services?.map((service) => (
-              <li className="legend__item" key={service.id}>
-                {service.name}
-                <span className="legend__price">${(service.price / 1_000_000).toFixed(2)}</span>
-              </li>
-            ))}
-            <li className="legend__item legend__item--hostile">
-              {data.hostileService?.name}
-              <span className="legend__price">
-                ${((data.hostileService?.price ?? 0) / 1_000_000).toFixed(2)}
+      <div className="deck deck--dash">
+        <div className="dash-main">
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">Job</h2>
+              <span className="card__note">
+                {run ? `${run.mode} · ${run.status}` : 'no active run'}
               </span>
-            </li>
-          </ul>
+            </div>
+
+            <label className="field">
+              <span className="field__label">Goal</span>
+              <textarea
+                className="field__input"
+                value={goal}
+                rows={2}
+                onChange={(event) => setGoal(event.target.value)}
+                spellCheck={false}
+              />
+            </label>
+
+            <div className="controls">
+              <button
+                className="key key--go"
+                onClick={() => void startRun('normal')}
+                disabled={running || busy !== null}
+              >
+                {busy === 'normal' || running ? 'Running…' : 'Run pipeline'}
+              </button>
+              <button
+                className="key key--stop"
+                onClick={() => void startRun('rogue')}
+                disabled={running || busy !== null}
+              >
+                Test refusal
+              </button>
+            </div>
+
+            <RunSteps run={run} />
+          </section>
+
+          <RunsTable runs={data.runSummaries ?? []} />
+          {active && <AgentPanel agent={active} snapshot={snapshot} baseUrl={baseUrl} />}
         </div>
 
-        <MeterHead
-          spentToday={data.spentToday ?? 0}
-          policy={policy}
-          agentTokens={snapshot?.agent.tokensRaw ?? 0}
-          runSpend={run?.spend ?? 0}
-          refusedCount={refusedCount}
-          agentName={snapshot?.agent.name}
-        />
-      </section>
-
-      <HowItWorks />
-
-      <div className="deck">
-        <section className="card">
-          <div className="card__head">
-            <h2 className="card__title">The run</h2>
-            <span className="card__note">
-              {run
-                ? run.status === 'running'
-                  ? 'live'
-                  : `${run.steps.filter((step) => step.status === 'settled').length} paid · ${run.refused} refused`
-                : 'idle'}
-            </span>
-          </div>
-
-          <label className="field">
-            <span className="field__label">What the agent is buying data for</span>
-            <textarea
-              className="field__input"
-              value={goal}
-              rows={2}
-              onChange={(event) => setGoal(event.target.value)}
-              spellCheck={false}
-            />
-          </label>
-
-          <RunLedger run={run} services={data.services} hostilePrice={data.hostileService?.price} />
-
-          {run?.verdict && (
-            <article className="verdict">
-              <h3 className="verdict__title">What the agent delivered</h3>
-              <p className="verdict__body">{run.verdict}</p>
-            </article>
-          )}
-        </section>
-
         <aside className="side">
-          <PolicyCard policy={policy} onApply={applyPolicy} disabled={running} />
-          <ReceiptTape ledger={ledger} />
+          <MeterHead
+            spentToday={data.spentToday ?? 0}
+            policy={policy}
+            agentTokens={snapshot?.agent.tokensRaw ?? 0}
+            runSpend={run?.spend ?? 0}
+            refusedCount={refusedCount}
+            agentName={snapshot?.agent.name}
+          />
+          <LimitsEditor policy={policy} onApply={applyPolicy} disabled={running} />
         </aside>
       </div>
 
-      <Economics ledger={ledger} agentTokens={snapshot?.agent.tokensRaw ?? 0} mint={snapshot?.mint} />
+      <LedgerTable ledger={ledger} />
 
       <footer className="foot">
         <span>
-          real devnet transactions · mint{' '}
+          mint{' '}
           <a
             href={`https://explorer.solana.com/address/${snapshot?.mint}?cluster=devnet`}
             target="_blank"
@@ -300,8 +280,8 @@ export default function Dashboard({ initialAgentId }: { initialAgentId?: string 
           · {snapshot?.rpcHost}
         </span>
         <span>
-          treasury {snapshot?.treasury.sol.toFixed(3)} SOL for fees · market data is a synthetic demo
-          set
+          treasury {snapshot?.treasury.sol.toFixed(3)} SOL · {agents.length} agents · engine{' '}
+          {data.llm?.configured ? data.llm.label : 'deterministic'}
         </span>
       </footer>
     </main>

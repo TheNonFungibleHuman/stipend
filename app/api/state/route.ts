@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { allAgents, toPublic } from '@/lib/agents';
-import { listRuns, spentToday } from '@/lib/agent';
+import { listRuns, mergeSummaries, spentToday, summariesFromLedger } from '@/lib/agent';
 import { bootstrap, FundingRequiredError, liveSnapshot } from '@/lib/bootstrap';
 import { HOSTILE_SERVICE, SERVICES } from '@/lib/config';
 import { llmConfigured, llmLabel } from '@/lib/llm';
@@ -19,7 +19,9 @@ export async function GET(request: Request) {
   // Recorded session, for building and reviewing the interface without devnet.
   if (process.env.STIPEND_FIXTURE === '1') {
     const { fixtureLedger, fixtureRun, fixtureSnapshot } = await import('@/lib/fixture');
+    const { mergeSummaries, summariesFromLedger } = await import('@/lib/agent');
     const ledger = fixtureLedger();
+    const live = [fixtureRun('normal')];
     const snapshot = fixtureSnapshot();
     return NextResponse.json({
       ok: true,
@@ -34,7 +36,8 @@ export async function GET(request: Request) {
       services: SERVICES,
       hostileService: HOSTILE_SERVICE,
       llm: { configured: llmConfigured(), label: llmLabel() },
-      runs: [fixtureRun('normal')],
+      runs: live,
+      runSummaries: mergeSummaries(summariesFromLedger(ledger), live),
       agents: [
         {
           id: snapshot.agent.id,
@@ -58,6 +61,7 @@ export async function GET(request: Request) {
       (entry) => entry.agentId === snapshot.agent.id || entry.agentId === undefined,
     );
     const agents = await allAgents();
+    const live = listRuns(snapshot.agent.id);
 
     return NextResponse.json({
       ok: true,
@@ -69,7 +73,8 @@ export async function GET(request: Request) {
       services: SERVICES,
       hostileService: HOSTILE_SERVICE,
       llm: { configured: llmConfigured(), label: llmLabel() },
-      runs: listRuns(snapshot.agent.id),
+      runs: live,
+      runSummaries: mergeSummaries(summariesFromLedger(ledger), live),
       agents: agents.map((agent) =>
         toPublic(agent, agent.id === snapshot.agent.id ? snapshot.agent.tokensRaw : undefined),
       ),

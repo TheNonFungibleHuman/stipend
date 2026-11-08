@@ -11,12 +11,12 @@ interface Props {
 }
 
 const PRESETS = [
-  { label: 'Cap $0.05', perCallCap: 50_000, hint: 'refuses the $0.06 and $0.08 calls' },
-  { label: 'Cap $0.10', perCallCap: 100_000, hint: 'the factory setting' },
-  { label: 'Cap $1.00', perCallCap: 1_000_000, hint: 'lets the $5.00 vendor through' },
+  { label: '$0.05', perCallCap: 50_000 },
+  { label: '$0.10', perCallCap: 100_000 },
+  { label: '$1.00', perCallCap: 1_000_000 },
 ];
 
-export function PolicyCard({ policy, onApply, disabled }: Props) {
+export function LimitsEditor({ policy, onApply, disabled }: Props) {
   const [perCall, setPerCall] = useState(policy?.perCallCap ?? 100_000);
   const [daily, setDaily] = useState(policy?.dailyCap ?? 1_000_000);
   const [saving, setSaving] = useState(false);
@@ -42,7 +42,7 @@ export function PolicyCard({ policy, onApply, disabled }: Props) {
     <section className="card">
       <div className="card__head">
         <h2 className="card__title">Limits</h2>
-        <span className="card__note">set at factory, operator may adjust</span>
+        <span className="card__note">checked before signing</span>
       </div>
 
       <div className="limits">
@@ -104,7 +104,6 @@ export function PolicyCard({ policy, onApply, disabled }: Props) {
             <button
               key={preset.label}
               className={`switch${preset.perCallCap === perCall ? ' switch--armed' : ''}`}
-              title={preset.hint}
               disabled={disabled || saving}
               onClick={() => {
                 setPerCall(preset.perCallCap);
@@ -115,11 +114,6 @@ export function PolicyCard({ policy, onApply, disabled }: Props) {
             </button>
           ))}
         </div>
-
-        <p className="limits__note">
-          Lower the cap, then run a task: the agent still asks, still gets a real 402, and stops. The
-          record shows a refusal, not a failed transaction.
-        </p>
       </div>
     </section>
   );

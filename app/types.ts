@@ -48,6 +48,17 @@ export interface Run {
   error?: string;
 }
 
+export interface RunSummary {
+  id: string;
+  startedAt: string;
+  services: string[];
+  settled: number;
+  refused: number;
+  errors: number;
+  spend: number;
+  status: 'running' | 'complete' | 'error';
+}
+
 export interface LedgerEntry {
   id: string;
   runId: string;
@@ -56,7 +67,7 @@ export interface LedgerEntry {
   serviceId: string;
   serviceName: string;
   price: number;
-  decision: 'settled' | 'refused' | 'error';
+  decision: 'settled' | 'refused' | 'error' | 'funded';
   reason?: string;
   signature?: string;
   settleMs?: number;
@@ -118,6 +129,7 @@ export interface StateResponse {
   hostileService?: ServiceDef;
   llm?: { configured: boolean; label: string };
   runs?: Run[];
+  runSummaries?: RunSummary[];
   agents?: PublicAgent[];
   activeAgentId?: string;
 }

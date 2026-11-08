@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { PublicKey } from '@solana/web3.js';
 import { keypairFor, pickAgent, type AgentRecord } from './agents';
-import { bootstrap, provisionAgent, tokenBalanceOf } from './bootstrap';
+import { bootstrap, tokenBalanceOf } from './bootstrap';
 import { serviceById, type Policy } from './config';
 import { llmLabel } from './llm';
 import { paidCall, type Quote } from './pay';
@@ -53,6 +53,69 @@ const globalForRuns = globalThis as unknown as { __stipendRuns?: Map<string, Run
 function runs(): Map<string, Run> {
   if (!globalForRuns.__stipendRuns) globalForRuns.__stipendRuns = new Map();
   return globalForRuns.__stipendRuns;
+}
+
+export interface RunSummary {
+  id: string;
+  startedAt: string;
+  services: string[];
+  settled: number;
+  refused: number;
+  errors: number;
+  spend: number;
+  status: 'running' | 'complete' | 'error';
+}
+
+/**
+ * Run history that survives a restart. In-memory runs vanish when the server
+ * does, but the ledger is on disk — a dashboard that forgets its own history
+ * the moment it restarts is not a dashboard.
+ */
+export function summariesFromLedger(ledger: LedgerEntry[]): RunSummary[] {
+  const grouped = new Map<string, RunSummary>();
+  for (const entry of ledger) {
+    // Funding events are not runs.
+    if (entry.decision === 'funded') continue;
+    const existing = grouped.get(entry.runId);
+    if (existing) {
+      existing.settled += entry.decision === 'settled' ? 1 : 0;
+      existing.refused += entry.decision === 'refused' ? 1 : 0;
+      existing.errors += entry.decision === 'error' ? 1 : 0;
+      existing.spend += entry.decision === 'settled' ? entry.price : 0;
+      if (!existing.services.includes(entry.serviceName)) existing.services.unshift(entry.serviceName);
+      if (Date.parse(entry.at) < Date.parse(existing.startedAt)) existing.startedAt = entry.at;
+    } else {
+      grouped.set(entry.runId, {
+        id: entry.runId,
+        startedAt: entry.at,
+        services: [entry.serviceName],
+        settled: entry.decision === 'settled' ? 1 : 0,
+        refused: entry.decision === 'refused' ? 1 : 0,
+        errors: entry.decision === 'error' ? 1 : 0,
+        spend: entry.decision === 'settled' ? entry.price : 0,
+        status: entry.decision === 'error' ? 'error' : 'complete',
+      });
+    }
+  }
+  return [...grouped.values()].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
+}
+
+/** Ledger history with live runs layered on top, so a running job appears once. */
+export function mergeSummaries(summaries: RunSummary[], live: Run[]): RunSummary[] {
+  const merged = new Map(summaries.map((summary) => [summary.id, summary]));
+  for (const run of live) {
+    merged.set(run.id, {
+      id: run.id,
+      startedAt: run.startedAt,
+      services: run.steps.map((step) => step.serviceName),
+      settled: run.steps.filter((step) => step.status === 'settled').length,
+      refused: run.steps.filter((step) => step.status === 'denied').length,
+      errors: run.steps.filter((step) => step.status === 'error').length,
+      spend: run.spend,
+      status: run.status,
+    });
+  }
+  return [...merged.values()].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
 }
 
 export function getRun(id: string): Run | undefined {
@@ -125,9 +188,8 @@ async function execute(run: Run, agent: AgentRecord, baseUrl: string): Promise<v
   if (!state.mint) throw new Error('devnet is not ready');
   const mint = new PublicKey(state.mint);
 
-  // Top the agent up before it starts, so a run is never cut short by runway.
-  await provisionAgent(agent, mint);
-
+  // No top-up here on purpose: an agent that runs out of runway must be refused,
+  // not quietly refilled. Funding is an operator action.
   const { treasury } = await wallets();
   const agentKeypair = keypairFor(agent);
   const ledger = await getLedger();
@@ -230,7 +292,6 @@ async function execute(run: Run, agent: AgentRecord, baseUrl: string): Promise<v
         step.status = 'error';
         step.reason = result.reason;
         step.quote = result.quote;
-        run.refused += 1;
         await appendLedger({
           id: `${run.id}-${index}`,
           runId: run.id,

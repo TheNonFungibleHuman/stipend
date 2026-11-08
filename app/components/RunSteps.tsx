@@ -1,6 +1,6 @@
 'use client';
 
-import type { Run, RunStep, ServiceDef } from '../types';
+import type { Run, RunStep } from '../types';
 import { explorerTx, shortAddress, usd } from '../types';
 
 function outputLines(step: RunStep): string[] {
@@ -24,53 +24,10 @@ const STAMP: Record<RunStep['status'], { label: string; className: string }> = {
   error: { label: 'Error', className: 'stamp--error' },
 };
 
-interface Props {
-  run: Run | null;
-  services?: ServiceDef[];
-  hostilePrice?: number;
-}
-
-export function RunLedger({ run, services = [], hostilePrice }: Props) {
+/** Steps of the run in view. Operational detail only. */
+export function RunSteps({ run }: { run: Run | null }) {
   if (!run) {
-    return (
-      <div className="queue">
-        <p className="queue__lead">
-          Nothing has run yet. Press <strong>Run a research task</strong> and the agent will make
-          three purchases it cannot control:
-        </p>
-        <ol className="queue__list">
-          {services.map((service, index) => (
-            <li className="queue__row" key={service.id}>
-              <span className="job__id">{String(index + 1).padStart(2, '0')}</span>
-              <span className="queue__name">{service.name}</span>
-              <span className="queue__price">{usd(service.price)}</span>
-              <span className="stamp">queued</span>
-            </li>
-          ))}
-        </ol>
-        <p className="queue__note">
-          Then one more vendor quoting {usd(hostilePrice ?? 5_000_000)} a call. The policy refuses it
-          before a signature exists, and the coin return fills up.
-        </p>
-
-        <details className="wire">
-          <summary className="wire__summary">What actually goes over the wire</summary>
-          <pre className="wire__body">{`POST /api/paid/market-intel
-← 402 Payment Required
-  { "accepts": { "scheme": "exact", "price": 40000,
-                 "payee": "4Nd1…4T", "mint": "9xQe…mU" } }
-
-POST /api/paid/market-intel
-  x-payment: eyJ2IjoxLCJzZXJ2aWNlSWQiOiJtYXJrZXQtaW50ZWwi…
-← 200 OK
-  { "output": { … }, "receipt": { "signature": "5j7s…rP", "slot": 412889 } }`}</pre>
-          <p className="wire__note">
-            The seller verifies the transfer against the payee&apos;s token balance before it
-            returns anything. No API key, no account, no billing table.
-          </p>
-        </details>
-      </div>
-    );
+    return <p className="empty-row">No active run.</p>;
   }
 
   return (
@@ -94,17 +51,15 @@ POST /api/paid/market-intel
             <div className="job__body">
               {step.status === 'denied' && (
                 <p className="job__denied">
-                  <strong>402 quoted {usd(step.price)}.</strong> {step.reason}. No signature was
-                  produced, so nothing moved and the vendor was told no.
+                  <strong>402 quoted {usd(step.price)}.</strong> {step.reason}. No signature
+                  produced.
                 </p>
               )}
 
               {(step.status === 'quoting' || step.status === 'settling') && (
                 <p className="job__pending">
                   <span className="spin" aria-hidden="true" />
-                  {step.status === 'quoting'
-                    ? 'asking the vendor for a price'
-                    : 'signing, then re-checking devnet'}
+                  {step.status === 'quoting' ? 'quoting' : 'signing, then re-checking devnet'}
                 </p>
               )}
 
@@ -137,11 +92,10 @@ POST /api/paid/market-intel
                     ))}
                   </ul>
                   <p className="job__meta">
-                    paid from the agent wallet ·{' '}
                     {step.engine === 'model'
                       ? `computed by ${step.model}`
                       : 'computed deterministically'}
-                    {step.verifyMs !== undefined && ` · seller verified in ${step.verifyMs}ms`}
+                    {step.verifyMs !== undefined && ` · vendor verified in ${step.verifyMs}ms`}
                   </p>
                 </>
               )}
@@ -149,13 +103,6 @@ POST /api/paid/market-intel
           </li>
         );
       })}
-      {run.status === 'running' && run.steps.length === 0 && (
-        <li className="job">
-          <p className="job__pending">
-            <span className="spin" aria-hidden="true" /> reading the policy
-          </p>
-        </li>
-      )}
     </ol>
   );
 }

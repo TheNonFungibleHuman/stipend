@@ -63,5 +63,7 @@ export function evaluate(input: PolicyInput): PolicyDecision {
 
 /** The card rails the product is arguing against, for the comparison panel. */
 export function cardFeeFor(price: number): number {
-  return Math.round(price * 0.029) + 30_000; // 2.9% + $0.30 in base units
+  // 2.9% of the sale plus a flat $0.30. Base units are 6-decimal, so the flat
+  // fee is 300_000, not 30_000.
+  return Math.round(price * 0.029) + 300_000;
 }

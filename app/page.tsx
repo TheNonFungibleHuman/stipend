@@ -1,11 +1,33 @@
 import Link from 'next/link';
+import { Faq } from './components/Faq';
 import { HowItWorks } from './components/HowItWorks';
+import { Proof } from './components/Proof';
+import { Reveal } from './components/Reveal';
 
 export const metadata = {
   title: 'Stipend — give your agent a budget, not your keys',
   description:
     'An AI agent with its own wallet and a spending policy enforced before every signature. It buys what it needs one call at a time, and the receipts settle on Solana in about half a second.',
 };
+
+const CONSOLE_PANELS = [
+  {
+    k: 'Status',
+    v: 'Spent today, budget left, balance, paid calls, median settle time, errors.',
+  },
+  {
+    k: 'Job',
+    v: 'The goal, the pipeline, and every step as it quotes, signs, settles or refuses.',
+  },
+  {
+    k: 'Limits',
+    v: 'Per-call cap and daily budget, editable while a run is in flight.',
+  },
+  {
+    k: 'Ledger',
+    v: 'Every payment and refusal with settle time, balance after, and the explorer link.',
+  },
+];
 
 export default function Landing() {
   return (
@@ -68,8 +90,9 @@ export default function Landing() {
           <ul className="sheet__list">
             <li>
               <span className="sheet__k">Wallet</span>
-              <span className="sheet__v">a Solana keypair and a stablecoin token account, funded by
-                you</span>
+              <span className="sheet__v">
+                a Solana keypair and a stablecoin token account, funded by you
+              </span>
             </li>
             <li>
               <span className="sheet__k">Caps</span>
@@ -77,21 +100,26 @@ export default function Landing() {
             </li>
             <li>
               <span className="sheet__k">Token</span>
-              <span className="sheet__v">an API token it presents to vendors, so calls are
-                attributable</span>
+              <span className="sheet__v">
+                an API token it presents to vendors and to the wallet service
+              </span>
             </li>
             <li>
               <span className="sheet__k">Ledger</span>
-              <span className="sheet__v">every payment and every refusal, each linking to the chain</span>
+              <span className="sheet__v">
+                every payment and every refusal, each linking to the chain
+              </span>
             </li>
           </ul>
           <pre className="sheet__code">{`POST /api/paid/market-intel
 x-agent-token: stp_…
 ← 402  { "price": 40000, "payee": "4Nd1…" }
+POST /api/agents/<id>/authorize
+← 200  { "header": "<payment>" }
 ← 200  { "output": {…}, "receipt": {…} }`}</pre>
           <p className="sheet__note">
-            The agent does not need an account with the vendor, and the vendor does not need a
-            billing integration. Settlement is the authorisation.
+            Three calls, two services, no account anywhere. The vendor checks the chain before it
+            answers, so the receipt is the payment.
           </p>
           <div className="sheet__stamp">
             <span className="sheet__stamp-label">Ready to issue</span>
@@ -100,12 +128,12 @@ x-agent-token: stp_…
         </aside>
       </section>
 
-      <section className="problem">
+      <Reveal className="problem">
         <div className="problem__cell">
           <span className="problem__k">Card rails</span>
           <span className="problem__v problem__v--warn">$0.30 + 2.9%</span>
           <span className="problem__note">
-            charged on every transaction, so a four-cent sale loses thirty cents
+            charged on every transaction, so a four-cent sale loses twenty-six cents
           </span>
         </div>
         <div className="problem__cell">
@@ -122,11 +150,35 @@ x-agent-token: stp_…
             an agent can buy one answer for four cents instead of a $59 monthly seat
           </span>
         </div>
-      </section>
+      </Reveal>
 
-      <HowItWorks />
+      <Reveal delay={60}>
+        <HowItWorks />
+      </Reveal>
 
-      <section className="closing">
+      <Proof />
+
+      <Reveal className="panels">
+        <div className="panels__head">
+          <h2 className="panels__title">What you get when you sign in</h2>
+          <p className="panels__lede">
+            The console is not a pitch. It is the four panels you use every day once an agent is
+            spending.
+          </p>
+        </div>
+        <div className="panels__grid">
+          {CONSOLE_PANELS.map((panel) => (
+            <div className="panels__cell" key={panel.k}>
+              <span className="panels__k">{panel.k}</span>
+              <span className="panels__v">{panel.v}</span>
+            </div>
+          ))}
+        </div>
+      </Reveal>
+
+      <Faq />
+
+      <Reveal className="closing">
         <div>
           <h2 className="closing__title">Set the caps once. Then let it buy.</h2>
           <p className="closing__body">
@@ -143,7 +195,7 @@ x-agent-token: stp_…
             See it working first
           </Link>
         </div>
-      </section>
+      </Reveal>
 
       <footer className="foot">
         <span>Solana devnet · demo stablecoin · market data is a synthetic set</span>

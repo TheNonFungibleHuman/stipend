@@ -8,7 +8,7 @@ export interface PersistedState {
   bootstrapCount: number;
 }
 
-export type LedgerDecision = 'settled' | 'refused' | 'error';
+export type LedgerDecision = 'settled' | 'refused' | 'error' | 'funded';
 
 export interface LedgerEntry {
   id: string;

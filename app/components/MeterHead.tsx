@@ -82,8 +82,7 @@ export function MeterHead({
         </div>
 
         <p className="machine__gloss">
-          Money this agent can still spend today. When the counter reaches zero, its next purchase
-          is refused.
+          {usd(remaining)} left of {usd(dailyCap)} today
         </p>
 
         <div
@@ -103,15 +102,13 @@ export function MeterHead({
           <div className="slot">
             <span className="slot__mouth" aria-hidden="true" />
             <span className="slot__cap">Pay</span>
-            <span className="slot__hint">the agent authorises one transfer here</span>
+            <span className="slot__hint">signs one transfer per call</span>
           </div>
           <div className={`coinreturn${refusedCount > 0 ? ' is-fed' : ''}`}>
             <span className="coinreturn__mouth" aria-hidden="true" />
             <span className="coinreturn__cap">Returned</span>
             <span className="coinreturn__hint">
-              {refusedCount > 0
-                ? `${refusedCount} ${refusedCount === 1 ? 'purchase' : 'purchases'} refused before signing`
-                : 'nothing refused yet'}
+              {refusedCount > 0 ? `${refusedCount} refused` : 'none refused'}
             </span>
           </div>
         </div>

@@ -19,7 +19,7 @@ import {
   type Policy,
 } from './config';
 import { confirmSignature, connection, withRetry } from './devnet';
-import { getState, patchState, withStoreLock } from './store';
+import { appendLedger, getState, patchState, withStoreLock } from './store';
 import { wallets } from './wallets';
 
 export interface ChainSnapshot {
@@ -103,16 +103,25 @@ export async function ensureAta(
   return ata;
 }
 
-async function readTokenBalance(ata: PublicKey): Promise<number> {
+/**
+ * A failed read is not a zero balance. Conflating them is how a wallet mints
+ * itself free money the first time the RPC hiccups.
+ */
+async function readTokenBalance(ata: PublicKey): Promise<number | null> {
   try {
     const account = await getAccount(connection(), ata, 'confirmed');
     return Number(account.amount);
   } catch {
-    return 0;
+    return null;
   }
 }
 
 export async function tokenBalanceOf(mint: PublicKey, owner: PublicKey): Promise<number> {
+  const balance = await readTokenBalance(getAssociatedTokenAddressSync(mint, owner, true));
+  return balance ?? 0;
+}
+
+export async function tryTokenBalanceOf(mint: PublicKey, owner: PublicKey): Promise<number | null> {
   return readTokenBalance(getAssociatedTokenAddressSync(mint, owner, true));
 }
 
@@ -145,14 +154,33 @@ export async function fundAgent(
   await withRetry('mintTo', () => mintTo(connection(), treasury, mintAddress, ata, treasury, amount));
 }
 
-/** Creates the agent's token account and tops it up when it is running low. */
+/** Creates the agent's token account and tops it up when it is genuinely low. */
 export async function provisionAgent(record: AgentRecord, mintAddress: PublicKey): Promise<number> {
   const { treasury } = await wallets();
   const owner = publicKeyOf(record);
   const ata = await ensureAta(treasury, mintAddress, owner);
   const balance = await readTokenBalance(ata);
+
+  // Unknown balance: do nothing. Minting on a failed read would hand out free
+  // runway every time devnet answered slowly.
+  if (balance === null) return 0;
+
   if (balance < AGENT_TOKEN_GRANT / 2) {
-    await fundAgent(mintAddress, owner, AGENT_TOKEN_GRANT - balance);
+    const amount = AGENT_TOKEN_GRANT - balance;
+    await fundAgent(mintAddress, owner, amount);
+    // Money entering the account belongs in the same record as money leaving it.
+    await appendLedger({
+      id: `fund-${record.id}-${Date.now()}`,
+      runId: 'funding',
+      agentId: record.id,
+      at: new Date().toISOString(),
+      serviceId: 'treasury',
+      serviceName: 'Treasury top-up',
+      price: amount,
+      decision: 'funded',
+      reason: 'runway refill',
+      agentBalanceAfter: AGENT_TOKEN_GRANT,
+    });
     return AGENT_TOKEN_GRANT;
   }
   return balance;

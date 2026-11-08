@@ -1,4 +1,4 @@
-import Dashboard from '../components/Dashboard';
+import Console from '../components/Console';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,5 +8,5 @@ export default async function ConsolePage({
   searchParams: Promise<{ agent?: string }>;
 }) {
   const { agent } = await searchParams;
-  return <Dashboard initialAgentId={agent} />;
+  return <Console initialAgentId={agent} />;
 }

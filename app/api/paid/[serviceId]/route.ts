@@ -87,10 +87,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ ser
   });
   if (!verdict.ok) return challenge(verdict.reason);
 
-  const work = await runService(definition.id, {
-    query: body.query ?? '',
-    intel: body.context ?? undefined,
-  });
+  let work;
+  try {
+    work = await runService(definition.id, {
+      query: body.query ?? '',
+      intel: body.context ?? undefined,
+    });
+  } catch (error) {
+    // Settlement already happened. Say so plainly rather than returning an
+    // opaque 500 in the middle of a paid chain.
+    return NextResponse.json(
+      {
+        error: 'vendor failed after settlement',
+        detail: error instanceof Error ? error.message : String(error),
+        receipt: { signature: proof.signature, slot: verdict.slot },
+      },
+      { status: 502 },
+    );
+  }
 
   return NextResponse.json(
     {
