@@ -24,7 +24,7 @@ Transport: stdio
 Command: node
 Args: ["/path/to/mcp/stipend-mcp.mjs"]
 Environment:
-  STIPEND_URL=STIPEND_URL
+  STIPEND_URL=https://stipend-delta.vercel.app
   STIPEND_AGENT_ID=<your agent id>
   STIPEND_AGENT_TOKEN=<your owner key>
 
@@ -43,7 +43,7 @@ refusal reason instead.
       "command": "node",
       "args": ["/path/to/mcp/stipend-mcp.mjs"],
       "env": {
-        "STIPEND_URL": "STIPEND_URL",
+        "STIPEND_URL": "https://stipend-delta.vercel.app",
         "STIPEND_AGENT_ID": "<your agent id>",
         "STIPEND_AGENT_TOKEN": "<your owner key>"
       }
@@ -52,7 +52,7 @@ refusal reason instead.
 }
 ```
 
-The server is one dependency-free file. It makes no network calls except to `STIPEND_URL`, and it
+The server is one dependency-free file. It makes no network calls except to the deployment URL, and it
 holds no key material of its own.
 
 ## Option 3 — raw HTTP
@@ -61,19 +61,19 @@ If you would rather not use MCP, the same handshake is two requests:
 
 ```bash
 # 1 · ask — a 402 comes back with a price
-curl -X POST STIPEND_URL/api/paid/market-intel \
+curl -X POST https://stipend-delta.vercel.app/api/paid/market-intel \
   -H "x-agent-token: $TOKEN" \
   -H "content-type: application/json" \
   -d '{"query":"what are people saying about usage-based pricing"}'
 
 # 2 · authorise against the caps; 403 means refused
-curl -X POST STIPEND_URL/api/agents/$AGENT_ID/authorize \
+curl -X POST https://stipend-delta.vercel.app/api/agents/$AGENT_ID/authorize \
   -H "x-agent-token: $TOKEN" \
   -H "content-type: application/json" \
   -d '{"serviceId":"market-intel"}'
 
 # 3 · retry with proof
-curl -X POST STIPEND_URL/api/paid/market-intel \
+curl -X POST https://stipend-delta.vercel.app/api/paid/market-intel \
   -H "x-agent-token: $TOKEN" \
   -H "x-payment: $PAYMENT_HEADER" \
   -H "content-type: application/json" \

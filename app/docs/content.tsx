@@ -92,7 +92,7 @@ export const DOCS: DocPage[] = [
         )}
         {h('1 · Open the console')}
         {p(
-          'Go to STIPEND_URL and choose Create your agent. You will be asked for a name, a per-call cap and a daily budget.',
+          'Go to https://stipend-delta.vercel.app and choose Create your agent. You will be asked for a name, a per-call cap and a daily budget.',
         )}
         {note(
           'The limits are yours to set. Stipend imposes no ceiling — type any amount you are willing to lose. The only hard limit is that an agent cannot spend more than it holds.',
@@ -201,7 +201,7 @@ Transport: stdio
 Command: node
 Args: ["/path/to/mcp/stipend-mcp.mjs"]
 Environment:
-  STIPEND_URL=STIPEND_URL
+  STIPEND_URL=https://stipend-delta.vercel.app
   STIPEND_AGENT_ID=<your agent id>
   STIPEND_AGENT_TOKEN=<your owner key>
 
@@ -215,7 +215,7 @@ do not retry it — report the refusal reason instead.`)}
       "command": "node",
       "args": ["/path/to/mcp/stipend-mcp.mjs"],
       "env": {
-        "STIPEND_URL": "STIPEND_URL",
+        "STIPEND_URL": "https://stipend-delta.vercel.app",
         "STIPEND_AGENT_ID": "<your agent id>",
         "STIPEND_AGENT_TOKEN": "<your owner key>"
       }
@@ -223,7 +223,7 @@ do not retry it — report the refusal reason instead.`)}
   }
 }`)}
         {p(
-          'The server is one dependency-free file. It makes no network calls except to STIPEND_URL and holds no key material of its own.',
+          'The server is one dependency-free file. It makes no network calls except to the deployment URL and holds no key material of its own.',
         )}
         {h('Option 3 — raw HTTP')}
         {code(`// 1 · ask; a 402 comes back with a price
