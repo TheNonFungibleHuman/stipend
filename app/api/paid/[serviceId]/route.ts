@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { agentByToken } from '@/lib/agents';
 import { PAYMENT_HEADER, serviceById } from '@/lib/config';
-import type { MarketIntel } from '@/lib/services';
 import { runService } from '@/lib/services';
 import { getState } from '@/lib/store';
 import { verifyPayment } from '@/lib/verify';
@@ -32,7 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ser
   const body = (await request.json().catch(() => ({}))) as {
     query?: string;
     runId?: string;
-    context?: MarketIntel | null;
+    context?: unknown;
   };
 
   const { providers } = await wallets();
@@ -111,6 +110,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ ser
       serviceId: definition.id,
       engine: work.engine,
       model: work.model,
+      source: work.source,
+      note: work.note,
       computeMs: work.computeMs,
       output: work.output,
       receipt: {

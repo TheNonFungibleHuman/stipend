@@ -1,90 +1,33 @@
 import { complete, llmConfigured } from './llm';
+import { fetchSignals, type Signal } from './vendors/signals';
 
 /**
- * What the agent buys. Each service returns something a next step consumes, so
- * the run is a real pipeline rather than three unrelated API calls.
+ * What the agent buys.
  *
- * The market dataset is synthetic demo data — a real deployment would pay a
- * real data vendor through exactly this flow.
+ * The signal vendor fetches real public discussion at call time; the summariser
+ * and brief writer are the model's work. When no LLM key is configured both fall
+ * back to deterministic text and say so — the console prints which engine ran.
  */
-export interface Competitor {
-  name: string;
-  monthly: number;
-  positioning: string;
-}
-
-export interface MarketIntel {
-  category: string;
-  competitors: Competitor[];
-  medianMonthly: number;
-  cheapest: string;
-}
-
-export interface Notes {
-  notes: string[];
-  spread: number;
-}
-
-export interface Brief {
-  title: string;
-  memo: string;
-}
-
-const MARKET_DATA: Record<string, MarketIntel> = {
-  'ai-observability': {
-    category: 'AI observability',
-    competitors: [
-      { name: 'Langfuse', monthly: 59, positioning: 'open-source first, self-host upsell' },
-      { name: 'Helicone', monthly: 20, positioning: 'cheap gateway, usage-based' },
-      { name: 'Braintrust', monthly: 249, positioning: 'eval-led, enterprise pilots' },
-      { name: 'Arize', monthly: 399, positioning: 'ML platform incumbents' },
-      { name: 'LangSmith', monthly: 39, positioning: 'bundled with the framework' },
-    ],
-    medianMonthly: 59,
-    cheapest: 'Helicone',
-  },
-  'agent-payments': {
-    category: 'Agent payments',
-    competitors: [
-      { name: 'Skyfire', monthly: 0, positioning: 'per-transaction, KYB onboarding' },
-      { name: 'Payman', monthly: 0, positioning: 'human-approved agent payouts' },
-      { name: 'Coinbase x402', monthly: 0, positioning: 'protocol, not a product' },
-      { name: 'Stripe SPT', monthly: 0, positioning: 'card rails, high minimum ticket' },
-    ],
-    medianMonthly: 0,
-    cheapest: 'Coinbase x402',
-  },
-};
-
-function marketFor(query: string): MarketIntel {
-  const key = Object.keys(MARKET_DATA).find((candidate) => query.toLowerCase().includes(candidate.split('-')[0]));
-  return MARKET_DATA[key ?? 'agent-payments'];
-}
+export type Engine = 'fetch' | 'model' | 'deterministic';
 
 export interface ServiceResult {
   serviceId: string;
-  output: MarketIntel | Notes | Brief | { text: string };
-  engine: 'model' | 'deterministic';
+  output: unknown;
+  engine: Engine;
   model?: string;
+  source?: 'live' | 'cached';
+  note?: string;
   computeMs: number;
 }
 
-/**
- * The caller passes whatever the previous step bought. Never trust its shape:
- * a summariser output is not a market-intel payload, and a 500 in the middle of
- * a paid chain is a worse failure than falling back to the known dataset.
- */
-function asMarketIntel(value: unknown, query: string): MarketIntel {
-  const candidate = value as MarketIntel | null | undefined;
-  if (
-    candidate &&
-    Array.isArray(candidate.competitors) &&
-    candidate.competitors.length > 0 &&
-    typeof candidate.category === 'string'
-  ) {
-    return candidate;
+function signalsFrom(value: unknown): Signal[] | null {
+  const candidate = value as { signals?: unknown } | null | undefined;
+  if (candidate && Array.isArray(candidate.signals) && candidate.signals.length > 0) {
+    return candidate.signals
+      .filter((signal): signal is Signal => typeof (signal as Signal)?.title === 'string')
+      .slice(0, 8);
   }
-  return marketFor(query);
+  return null;
 }
 
 function notesFrom(value: unknown): string[] {
@@ -95,76 +38,126 @@ function notesFrom(value: unknown): string[] {
   return [];
 }
 
+const bulletise = (text: string): string[] =>
+  text
+    .split('\n')
+    .map((line) => line.replace(/^[-*•\d.)\s]+/, '').trim())
+    .filter((line) => line.length > 12)
+    .slice(0, 5);
+
+function deterministicNotes(signals: Signal[]): string[] {
+  const top = [...signals].sort((a, b) => b.points - a.points);
+  const totalComments = signals.reduce((sum, signal) => sum + signal.comments, 0);
+  const years = [...new Set(signals.map((signal) => signal.date.slice(0, 4)))].sort();
+  return [
+    `${signals.length} live signals, ${top[0]?.points ?? 0} points at the top, ${totalComments} comments in total.`,
+    `The loudest thread is “${top[0]?.title ?? 'none'}” (${top[0]?.date ?? 'unknown date'}).`,
+    `Coverage spans ${years[0] ?? '—'} to ${years[years.length - 1] ?? '—'}, so some of this is settled opinion and some is not.`,
+    `Nobody in the results is selling the thing you are priced for; that is the gap to argue.`,
+  ];
+}
+
+function deterministicMemo(goal: string, signals: Signal[]): string {
+  const top = [...signals].sort((a, b) => b.points - a.points)[0];
+  return (
+    `Recommendation: price per call and publish the ceiling, because the loudest live signal — ` +
+    `“${top?.title ?? 'no signal'}” with ${top?.points ?? 0} points — is a market arguing about ` +
+    `commitment, not about price levels. Charge for the unit the buyer can stop, keep the floor ` +
+    `low enough that a single call is defensible, and make the daily cap the thing you sell ` +
+    `against a seat. Risk: with ${signals.reduce((sum, signal) => sum + signal.comments, 0)} ` +
+    `comments behind these threads, expectations are already set by people who have been burned ` +
+    `by usage bills; a surprise invoice costs more trust than the revenue it adds. ` +
+    `Original ask: “${goal}”.`
+  );
+}
+
 export async function runService(
   serviceId: string,
   context: { query: string; intel?: unknown },
 ): Promise<ServiceResult> {
   const started = Date.now();
-  const intel = asMarketIntel(context.intel, context.query);
-  const notes = notesFrom(context.intel);
 
   if (serviceId === 'market-intel') {
-    // Buying data: the value is the dataset, so no model is involved.
+    const result = await fetchSignals(context.query);
     return {
       serviceId,
-      output: intel,
-      engine: 'deterministic',
+      output: result,
+      engine: 'fetch',
+      source: result.source,
+      note: result.note,
       computeMs: Date.now() - started,
     };
   }
+
+  const signals = signalsFrom(context.intel) ?? (await fetchSignals(context.query)).signals;
+  const sourceNote =
+    (context.intel as { source?: 'live' | 'cached' } | null | undefined)?.source === 'cached'
+      ? 'cached snapshot'
+      : 'live signals';
 
   if (serviceId === 'summarize') {
     if (llmConfigured()) {
       const result = await complete({
         system:
-          'You are a research analyst. Return 3-4 short bullet points of decision-grade insight. ' +
-          'No preamble, no headings, no markdown bold. Each bullet under 22 words.',
-        user: `Competitor data (monthly price in USD, positioning):\n${JSON.stringify(intel, null, 2)}\n\n` +
-          `Goal: ${context.query}\n\nWrite the bullets.`,
+          'You are a research analyst. Given real discussion threads, return 3-4 short bullets of ' +
+          'decision-grade insight for a founder. No preamble, no headings, no markdown bold. ' +
+          'Each bullet under 22 words. Reference the strongest evidence by name.',
+        user: `Goal: ${context.query}\n\nLive threads:\n${signals
+          .map((signal) => `- "${signal.title}" (${signal.points} pts, ${signal.comments} comments, ${signal.date})`)
+          .join('\n')}\n\nWrite the bullets.`,
         maxTokens: 400,
       });
       if (result) {
         return {
           serviceId,
-          output: { notes: bullets(result.text), spread: spreadOf(intel) },
+          output: { notes: bulletise(result.text), signalCount: signals.length },
           engine: 'model',
           model: result.model,
+          note: sourceNote,
           computeMs: Date.now() - started,
         };
       }
     }
     return {
       serviceId,
-      output: { notes: deterministicNotes(intel), spread: spreadOf(intel) },
+      output: { notes: deterministicNotes(signals), signalCount: signals.length },
       engine: 'deterministic',
+      note: sourceNote,
       computeMs: Date.now() - started,
     };
   }
 
   if (serviceId === 'brief-writer') {
-    const source = notes.length > 0 ? `Notes the agent already bought:\n${notes.join('\n')}` : '';
+    const notes = notesFrom(context.intel);
     if (llmConfigured()) {
       const result = await complete({
         system:
-          'You write one-page memos for operators. Plain prose, 120 words max, no markdown, no preamble. ' +
-          'Open with the recommendation, then the reasoning, then the risk.',
-        user: `Goal: ${context.query}\n\nCompetitor data:\n${JSON.stringify(intel, null, 2)}\n\n${source}\n\nWrite the memo.`,
+          'You write one-page memos for operators. Plain prose, 120 words max, no markdown, no ' +
+          'preamble. Open with the recommendation, then the reasoning, then the risk.',
+        user:
+          `Goal: ${context.query}\n\nThreads:\n${signals
+            .map((signal) => `- "${signal.title}" (${signal.points} pts, ${signal.date})`)
+            .join('\n')}\n\n` +
+          (notes.length > 0 ? `Notes already bought:\n${notes.join('\n')}\n\n` : '') +
+          'Write the memo.',
         maxTokens: 500,
       });
       if (result) {
         return {
           serviceId,
-          output: { title: `Memo — ${intel.category}`, memo: result.text },
+          output: { memo: result.text },
           engine: 'model',
           model: result.model,
+          note: sourceNote,
           computeMs: Date.now() - started,
         };
       }
     }
     return {
       serviceId,
-      output: { title: `Memo — ${intel.category}`, memo: deterministicMemo(intel, context.query) },
+      output: { memo: deterministicMemo(context.query, signals) },
       engine: 'deterministic',
+      note: sourceNote,
       computeMs: Date.now() - started,
     };
   }
@@ -175,47 +168,4 @@ export async function runService(
     engine: 'deterministic',
     computeMs: Date.now() - started,
   };
-}
-
-function bullets(text: string): string[] {
-  return text
-    .split('\n')
-    .map((line) => line.replace(/^[-*•\d.\s]+/, '').trim())
-    .filter((line) => line.length > 12)
-    .slice(0, 5);
-}
-
-function spreadOf(intel: MarketIntel): number {
-  const prices = intel.competitors.map((competitor) => competitor.monthly).filter((price) => price > 0);
-  if (prices.length < 2) return 0;
-  return Math.round((Math.max(...prices) / Math.min(...prices)) * 10) / 10;
-}
-
-function deterministicNotes(intel: MarketIntel): string[] {
-  const sorted = [...intel.competitors].sort((a, b) => a.monthly - b.monthly);
-  const paid = sorted.filter((competitor) => competitor.monthly > 0);
-  const notes = [
-    `${intel.category} prices span ${spreadOf(intel)}x, from $${paid[0]?.monthly ?? 0} to $${paid[paid.length - 1]?.monthly ?? 0} a month.`,
-    `Median list price sits at $${intel.medianMonthly}; the cheapest credible option is ${intel.cheapest}.`,
-  ];
-  if (sorted.some((competitor) => competitor.monthly === 0)) {
-    notes.push('Free tiers are a land-grab: charging for seats is not what wins here.');
-  }
-  notes.push(
-    `${intel.competitors.length} vendors, none priced per outcome — the gap is usage-based pricing.`,
-  );
-  return notes;
-}
-
-function deterministicMemo(intel: MarketIntel, query: string): string {
-  const sorted = [...intel.competitors].sort((a, b) => a.monthly - b.monthly);
-  const paid = sorted.filter((competitor) => competitor.monthly > 0);
-  return (
-    `Recommendation: enter ${intel.category} below the $${intel.medianMonthly} median and charge per outcome, not per seat. ` +
-    `The market splits into free-tier land grabs (${sorted.filter((c) => c.monthly === 0).length} of ${sorted.length} vendors) ` +
-    `and seats above $${paid[paid.length - 1]?.monthly ?? 0}. Nothing here is priced per result, which is exactly where ` +
-    `an agent-paid product wins: the buyer pays cents per answer and the seller keeps the whole margin. ` +
-    `Risk: ${intel.cheapest} can copy outcome pricing in a release cycle; the defensible part is the payment rail and the audit trail, not the model. ` +
-    `Original ask: "${query}".`
-  );
 }

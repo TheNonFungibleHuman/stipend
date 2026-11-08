@@ -1199,17 +1199,19 @@ input[type='range']:disabled {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 9px;
+  padding: 6px 10px;
   font-family: var(--font-mono);
   font-size: 9.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--silk-dim);
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(223, 231, 226, 0.2);
-  border-radius: 1px;
+  background: linear-gradient(180deg, rgba(223, 231, 226, 0.14), rgba(0, 0, 0, 0.34));
+  border: 1px solid rgba(223, 231, 226, 0.3);
+  border-radius: 2px;
+  box-shadow: 0 1px 0 rgba(223, 231, 226, 0.12) inset, 0 2px 0 rgba(0, 0, 0, 0.45);
   cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease;
+  transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease,
+    transform 90ms ease, box-shadow 90ms ease;
 }
 
 .switch::before {
@@ -1218,15 +1220,21 @@ input[type='range']:disabled {
   height: 6px;
   background: var(--chrome-shadow);
   border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5) inset;
 }
 
 .switch:hover:not(:disabled) {
   color: var(--silk);
-  border-color: rgba(223, 231, 226, 0.45);
+  border-color: rgba(255, 194, 75, 0.55);
 }
 
 .switch:hover:not(:disabled)::before {
   background: var(--lamp-warn);
+}
+
+.switch:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
 }
 
 .switch:disabled {
@@ -1234,8 +1242,14 @@ input[type='range']:disabled {
   cursor: not-allowed;
 }
 
+.switch--armed {
+  color: var(--silk);
+  border-color: rgba(127, 224, 166, 0.45);
+}
+
 .switch--armed::before {
   background: var(--lamp-ok);
+  box-shadow: 0 0 6px rgba(127, 224, 166, 0.6);
 }
 
 .limits__note {
@@ -2142,8 +2156,54 @@ a.key {
   background: rgba(163, 50, 16, 0.08);
 }
 
+.table__svc {
+  display: block;
+  color: var(--slip-ink);
+}
+
+.table__amt {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--slip-dim);
+}
+
+.table__settle {
+  margin-left: 7px;
+  font-size: 10px;
+  color: var(--slip-dim);
+}
+
+.table__receipt {
+  display: inline-block;
+  padding: 3px 7px;
+  border: 1px solid rgba(35, 39, 31, 0.32);
+  border-radius: 1px;
+  background: rgba(35, 39, 31, 0.04);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--slip-ink);
+  border-bottom: 1px solid rgba(35, 39, 31, 0.32);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.table__receipt:hover {
+  background: rgba(35, 39, 31, 0.1);
+  border-color: var(--slip-ink);
+}
+
+.table__noreceipt {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slip-dim);
+  opacity: 0.7;
+}
+
 .table--slip a {
-  border-bottom-style: dotted;
+  border-bottom-width: 0;
 }
 
 .empty-row {
@@ -2201,6 +2261,26 @@ a.key {
   font-size: 10.5px;
   letter-spacing: 0;
   word-break: break-all;
+}
+
+.agentpanel__fund {
+  display: grid;
+  gap: 8px;
+  padding: 14px 0 0;
+  margin-bottom: 12px;
+  border-top: var(--hair);
+}
+
+.key--wide {
+  width: 100%;
+  justify-content: center;
+}
+
+.agentpanel__fundnote {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--silk-faint);
 }
 
 .agentpanel__toggle {

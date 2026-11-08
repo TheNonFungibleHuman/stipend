@@ -8,6 +8,8 @@ interface Props {
   agent: PublicAgent;
   snapshot?: ChainSnapshot;
   baseUrl: string;
+  onFund?: () => void;
+  funding?: boolean;
 }
 
 function Copy({ value, label }: { value: string; label: string }) {
@@ -31,7 +33,7 @@ function Copy({ value, label }: { value: string; label: string }) {
 }
 
 /** Identity and the exact handshake an agent uses to spend from this account. */
-export function AgentPanel({ agent, snapshot, baseUrl }: Props) {
+export function AgentPanel({ agent, snapshot, baseUrl, onFund, funding }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [showCode, setShowCode] = useState(false);
 
@@ -117,6 +119,17 @@ const { output, receipt } = await paid.json();`;
           </dd>
         </div>
       </dl>
+
+      <div className="agentpanel__fund">
+        <button className="key key--go key--wide" onClick={onFund} disabled={funding || !onFund}>
+          {funding ? 'Funding…' : 'Add 25 dUSD'}
+        </button>
+        <p className="agentpanel__fundnote">
+          Mints demo stablecoin from the treasury into this agent&apos;s wallet. It lands in the
+          ledger as a <span className="mono">funded</span> row, so the balance never changes without
+          a record.
+        </p>
+      </div>
 
       <button className="wire__summary agentpanel__toggle" onClick={() => setShowCode((v) => !v)}>
         {showCode ? '− ' : '+ '}Connect your agent

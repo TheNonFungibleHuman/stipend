@@ -169,6 +169,9 @@ export default function Console({ initialAgentId }: { initialAgentId?: string })
         </Link>
         <div className="plate__right">
           <span className="lamp lamp--live">devnet</span>
+          <span className={`lamp${data.llm?.configured ? ' lamp--live' : ' lamp--warn'}`}>
+            {data.llm?.configured ? data.llm.label : 'no model key'}
+          </span>
           {data.fixture && <span className="lamp lamp--warn">recorded session</span>}
           {agents.length > 0 && (
             <label className="selector">
@@ -187,9 +190,6 @@ export default function Console({ initialAgentId }: { initialAgentId?: string })
               </select>
             </label>
           )}
-          <button className="switch" onClick={() => void fundAgent()} disabled={!active}>
-            Top up
-          </button>
           <Link className="plate__meta plate__link" href="/start">
             + new agent
           </Link>
@@ -249,7 +249,15 @@ export default function Console({ initialAgentId }: { initialAgentId?: string })
           </section>
 
           <RunsTable runs={data.runSummaries ?? []} />
-          {active && <AgentPanel agent={active} snapshot={snapshot} baseUrl={baseUrl} />}
+          {active && (
+            <AgentPanel
+              agent={active}
+              snapshot={snapshot}
+              baseUrl={baseUrl}
+              onFund={() => void fundAgent()}
+              funding={busy !== null}
+            />
+          )}
         </div>
 
         <aside className="side">

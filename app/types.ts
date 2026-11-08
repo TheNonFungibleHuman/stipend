@@ -24,7 +24,9 @@ export interface RunStep {
   settleMs?: number;
   verifyMs?: number;
   output?: unknown;
-  engine?: 'model' | 'deterministic';
+  engine?: 'fetch' | 'model' | 'deterministic';
+  source?: 'live' | 'cached';
+  note?: string;
   model?: string;
   cardFee?: number;
   startedAt: string;

@@ -5,16 +5,31 @@ import { explorerTx, shortAddress, usd } from '../types';
 
 function outputLines(step: RunStep): string[] {
   const output = step.output as
-    | { notes?: string[]; memo?: string; competitors?: Array<{ name: string; monthly: number }> }
+    | {
+        notes?: string[];
+        memo?: string;
+        signals?: Array<{ title: string; points: number; comments?: number; date?: string; url?: string }>;
+      }
     | undefined;
   if (!output) return [];
+  if (Array.isArray(output.signals)) {
+    return output.signals.map(
+      (signal) =>
+        `${signal.title} — ${signal.points} pts${signal.comments ? `, ${signal.comments} comments` : ''}${
+          signal.date ? ` (${signal.date})` : ''
+        }`,
+    );
+  }
   if (Array.isArray(output.notes)) return output.notes;
   if (typeof output.memo === 'string') return [output.memo];
-  if (Array.isArray(output.competitors)) {
-    return output.competitors.map((competitor) => `${competitor.name} — $${competitor.monthly}/mo`);
-  }
   return [];
 }
+
+const ENGINE_LABEL: Record<string, string> = {
+  fetch: 'fetched from the live source',
+  model: 'computed by model',
+  deterministic: 'computed deterministically',
+};
 
 const STAMP: Record<RunStep['status'], { label: string; className: string }> = {
   quoting: { label: 'Quoting', className: 'stamp--live' },
@@ -94,7 +109,10 @@ export function RunSteps({ run }: { run: Run | null }) {
                   <p className="job__meta">
                     {step.engine === 'model'
                       ? `computed by ${step.model}`
-                      : 'computed deterministically'}
+                      : step.engine === 'fetch'
+                        ? 'fetched from the live source'
+                        : 'computed deterministically'}
+                    {step.source === 'cached' && ' · cached snapshot'}
                     {step.verifyMs !== undefined && ` · vendor verified in ${step.verifyMs}ms`}
                   </p>
                 </>

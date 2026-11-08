@@ -72,13 +72,16 @@ const ITEMS: Array<{ q: string; a: React.ReactNode }> = [
     ),
   },
   {
-    q: 'What is real here, and what is synthetic?',
+    q: 'What is real here, and what is not?',
     a: (
       <>
-        Real: every settlement, every signature, every balance change, and every refusal — all on
-        Solana devnet, all openable in an explorer. Synthetic: the market dataset the vendors
-        return, and the demo stablecoin. Reasoning runs on a deterministic engine unless an LLM key
-        is configured, in which case the summariser and memo come from the model.
+        Real: the signals vendor fetches public discussion live at call time and the step names the
+        query it ran; the summariser and the memo are written by the model, and the console prints
+        which model; every settlement, signature, balance change and refusal is a devnet transaction
+        you can open in an explorer. Not real: the demo stablecoin (dUSD), minted by the treasury so
+        you can try this with nothing at stake. If the live source is unreachable the vendor serves a
+        cached snapshot and the step says <span className="mono">cached</span> instead of{' '}
+        <span className="mono">live</span> — it never claims a fetch it did not make.
       </>
     ),
   },

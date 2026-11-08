@@ -23,7 +23,9 @@ export interface RunStep {
   settleMs?: number;
   verifyMs?: number;
   output?: unknown;
-  engine?: 'model' | 'deterministic';
+  engine?: 'fetch' | 'model' | 'deterministic';
+  source?: 'live' | 'cached';
+  note?: string;
   model?: string;
   cardFee?: number;
   startedAt: string;
@@ -239,7 +241,9 @@ async function execute(run: Run, agent: AgentRecord, baseUrl: string): Promise<v
       if (result.status === 'settled') {
         const payload = result.data as {
           output?: unknown;
-          engine?: 'model' | 'deterministic';
+          engine?: 'fetch' | 'model' | 'deterministic';
+          source?: 'live' | 'cached';
+          note?: string;
           model?: string;
         };
         step.status = 'settled';
@@ -250,6 +254,8 @@ async function execute(run: Run, agent: AgentRecord, baseUrl: string): Promise<v
         step.output = payload.output;
         step.engine = payload.engine;
         step.model = payload.model;
+        step.source = payload.source;
+        step.note = payload.note;
         step.price = result.quote.price;
         spent += result.quote.price;
         balance -= result.quote.price;

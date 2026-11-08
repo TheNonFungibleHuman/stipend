@@ -198,7 +198,7 @@ POST /api/agents/<id>/authorize
       </Reveal>
 
       <footer className="foot">
-        <span>Solana devnet · demo stablecoin · market data is a synthetic set</span>
+        <span>Solana devnet · demo stablecoin · signals fetched live at call time</span>
         <span>built for the MLH × Solana hackathon</span>
       </footer>
     </main>
