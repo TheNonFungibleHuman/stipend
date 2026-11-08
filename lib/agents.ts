@@ -51,21 +51,31 @@ const globalForAgents = globalThis as unknown as {
 };
 
 
+async function readAgents(): Promise<AgentRecord[]> {
+  const stored = await readDocument<{ agents?: AgentRecord[] }>('agents', {});
+  const records = Array.isArray(stored.agents) ? stored.agents : [];
+  // Records written before view tokens existed still need a share key.
+  let migrated = false;
+  for (const record of records) {
+    if (!record.viewToken) {
+      record.viewToken = `stp_view_${randomBytes(18).toString('base64url')}`;
+      migrated = true;
+    }
+  }
+  if (migrated) await writeDocument('agents', { agents: records });
+  return records;
+}
+
 export async function allAgents(): Promise<AgentRecord[]> {
   if (!globalForAgents.__stipendAgents) {
-    const stored = await readDocument<{ agents?: AgentRecord[] }>('agents', {});
-    const records = Array.isArray(stored.agents) ? stored.agents : [];
-    // Records written before view tokens existed still need a share key.
-    let migrated = false;
-    for (const record of records) {
-      if (!record.viewToken) {
-        record.viewToken = `stp_view_${randomBytes(18).toString('base64url')}`;
-        migrated = true;
-      }
-    }
-    if (migrated) await writeDocument('agents', { agents: records });
-    globalForAgents.__stipendAgents = records;
+    globalForAgents.__stipendAgents = await readAgents();
   }
+  return globalForAgents.__stipendAgents;
+}
+
+/** Drops the process cache and re-reads, so a write from another instance shows up. */
+export async function refreshAgents(): Promise<AgentRecord[]> {
+  globalForAgents.__stipendAgents = await readAgents();
   return globalForAgents.__stipendAgents;
 }
 
@@ -100,7 +110,11 @@ async function withLock<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export async function getAgent(id: string): Promise<AgentRecord | undefined> {
-  return (await allAgents()).find((agent) => agent.id === id);
+  const found = (await allAgents()).find((agent) => agent.id === id);
+  if (found) return found;
+  // A miss is not proof of absence: another instance may have written this agent
+  // after this process cached the list. Re-read once before saying no.
+  return (await refreshAgents()).find((agent) => agent.id === id);
 }
 
 export async function createAgent(input: {
@@ -125,6 +139,9 @@ export async function createAgent(input: {
       demo: input.demo,
     };
     await writeDocument('agents', { agents: [...agents, record] });
+    // Keep the cache in step with the store, or the very next request on this
+    // instance cannot find the agent it just created.
+    globalForAgents.__stipendAgents = [...agents, record];
     return record;
   });
 }

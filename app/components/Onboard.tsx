@@ -59,17 +59,23 @@ export function Onboard() {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/api/agents/${agent.id}/fund`, { method: 'POST' });
+      const response = await fetch(`/api/agents/${agent.id}/fund`, {
+        method: 'POST',
+        headers: { 'x-agent-token': agent.token },
+      });
       const json = (await response.json()) as { tokensRaw?: number; error?: string };
       if (json.error || json.tokensRaw === undefined) {
         throw new Error(json.error ?? 'devnet rejected the top-up');
       }
       setFunded(json.tokensRaw);
     } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'devnet rejected the top-up';
+      // Only blame the treasury when the treasury is actually the problem.
+      const treasuryProblem = /sol|lamport|balance|fund|insufficient|airdrop/i.test(message);
       setError(
-        cause instanceof Error
-          ? `${cause.message} — the treasury needs devnet SOL before it can move anything.`
-          : 'devnet rejected the top-up',
+        treasuryProblem
+          ? `${message} — the treasury needs devnet SOL before it can move anything.`
+          : message,
       );
     } finally {
       setBusy(false);
