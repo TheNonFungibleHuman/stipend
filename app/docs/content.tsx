@@ -83,10 +83,13 @@ export const DOCS: DocPage[] = [
   {
     slug: 'get-started',
     title: 'Get started',
-    summary: 'Create an agent, set its limits, fund it, and run a paid task — all in the console.',
+    summary: 'Two ways in: connect your own agent, or try the demo agent.',
     body: (
       <>
         {p('You do not install anything to use Stipend. Everything below happens in the console.')}
+        {note(
+          'This runs on Solana devnet. The money is test money: it is minted for the demo and has no value. Nothing here touches a real card or a bank account.',
+        )}
         {h('1 · Open the console')}
         {p(
           'Go to STIPEND_URL and choose Create your agent. You will be asked for a name, a per-call cap and a daily budget.',
@@ -105,23 +108,30 @@ export const DOCS: DocPage[] = [
         {p(
           'Press Add 25 dUSD in the Agent panel. That mints demo stablecoin from the treasury into the agent’s wallet, and it appears in the ledger as a funded row — money entering the account is as visible as money leaving it.',
         )}
-        {h('4 · Run a task')}
-        {p('Press Run pipeline. The agent buys three services it does not control:')}
+        {h('4 · Use it from your own agent')}
+        {p(
+          'That is the real path. Your own agent — Claude Code, Cursor, opencode, anything that can add tools — buys through Stipend and pays from this agent’s wallet. The console page for your agent shows the three steps and a block of text to paste. Every purchase it makes appears in the ledger below with its price and a link to the transaction.',
+        )}
+        {h('5 · Or try the demo agent')}
+        {p(
+          'The demo agent is a shared sandbox for seeing the flow without setting anything up. Press Run pipeline and it buys three services it does not control:',
+        )}
         {code(`Signal Search   live public discussion for the goal     $0.04
 Summariser      decision-grade notes                      $0.06
 Brief Writer    a one-page memo                            $0.08`)}
         {p(
           'Each step is a real 402 → authorize → retry handshake. When it finishes, the ledger has three receipts with explorer links, and the memo is on screen.',
         )}
-        {h('5 · Prove the cap')}
+        {h('6 · Prove the cap')}
         {p(
-          'Set the per-call cap to $0.05 and run again. The $0.04 call settles; the $0.06 and $0.08 calls are refused with the reason, and no signature is produced.',
+          'Set the per-call cap to $0.05 and run the demo again. The $0.04 call settles; the $0.06 and $0.08 calls are refused with the reason, and no signature is produced. Nothing is charged for a refusal, because the money never moves.',
         )}
-        {h('6 · Connect your own agent')}
+        {h('7 · If something is refused')}
         {p(
           <>
-            Copy the prompt from the Agent panel into Claude Code, Cursor or opencode. See{' '}
-            <Link href="/docs/integration">Connect your agent</Link>.
+            A refused purchase is not an error. It means the policy said no, and nothing was signed.
+            See <Link href="/docs/troubleshooting">When a payment is refused</Link> for each reason
+            and what to change.
           </>,
         )}
       </>

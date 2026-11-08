@@ -79,13 +79,30 @@ transaction fee so the agent only ever holds stablecoin.
 
 ### Then, in the console
 
-1. **Create your agent** at `/start` — name, per-call cap, daily budget. Defaults are $1.00 a call
-   and $5.00 a day; there is no ceiling imposed by the product.
-2. **Fund it** — *Add 25 dUSD* mints demo stablecoin into the agent's wallet and records a `funded`
-   row in the ledger.
-3. **Run pipeline** — the agent buys three services it does not control, one real 402 handshake each.
-4. **Prove the cap** — set the per-call cap to $0.05 and run again: the $0.04 call settles, the $0.06
-   and $0.08 calls are refused with the reason and no signature.
+There are two kinds of agent, and the console behaves differently for each.
+
+**Your own agent** — this is the real path:
+
+1. **Create it** at `/start` — name, per-call cap, daily budget. Defaults are $1.00 a call and
+   $5.00 a day, and you can type any amount you are willing to lose. It starts with 25 dUSD of
+   test money.
+2. **Fund it** — *Add 25 dUSD* mints demo stablecoin into its wallet. On a real deployment you would
+   send it USDC instead.
+3. **Give your agent access** — the page hands you one block of text carrying that agent's own key.
+   Paste it into Claude Code, Cursor, opencode, or any agent that can add tools.
+4. **Ask it for something** — every purchase it makes lands in the ledger with the price and a link
+   to the transaction.
+
+**The demo agent** — a shared sandbox for seeing the flow with nothing set up:
+
+1. Press **Run pipeline**: it buys three services it does not control, one real 402 handshake each.
+2. Press **Test refusal**: it asks a $5.00 vendor, which the policy refuses.
+3. **Prove the cap** — set the per-call cap to $0.05 and run again: the $0.04 call settles, the
+   $0.06 and $0.08 calls are refused with the reason and no signature.
+
+> Everything here runs on Solana devnet. The stablecoin is minted for the demo and is worth nothing,
+> and the SOL is test SOL. No card and no bank account is involved.
+
 
 ### Useful commands
 
