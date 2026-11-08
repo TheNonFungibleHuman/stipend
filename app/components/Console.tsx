@@ -34,7 +34,9 @@ export default function Console({
   const [busy, setBusy] = useState<null | 'normal' | 'rogue'>(null);
   const [connError, setConnError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [bootStage, setBootStage] = useState<'connecting' | 'slow' | 'failed'>('connecting');
   const failures = useRef(0);
+  const inFlight = useRef(false);
   const activeId = useRef<string | undefined>(initialAgentId);
   activeId.current = agentId;
 
@@ -42,17 +44,31 @@ export default function Console({
   const authHeaders = (extra: Record<string, string> = {}): Record<string, string> =>
     initialToken ? { ...extra, 'x-agent-token': initialToken } : extra;
 
+  /**
+   * A request that never answers used to leave the console on "Connecting to
+   * devnet" forever, because only a rejection counted as a failure. The timeout
+   * turns a hang into an error, the in-flight guard stops the 6s poll from
+   * stacking requests on a cold serverless function, and the boot screen below
+   * now says what happened instead of spinning.
+   */
   const loadState = useCallback(async (refresh = false) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     try {
       const query = new URLSearchParams();
       if (refresh) query.set('refresh', '1');
       if (initialView) query.set('view', initialView);
       else if (initialToken) query.set('token', initialToken);
       else if (activeId.current) query.set('agent', activeId.current);
-      const response = await fetch(`/api/state?${query.toString()}`, { cache: 'no-store' });
+      const response = await fetch(`/api/state?${query.toString()}`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (!response.ok) throw new Error(`the server answered ${response.status}`);
       const json = (await response.json()) as StateResponse;
       failures.current = 0;
       setConnError(null);
+      setBootStage('connecting');
       setData(json);
       if (typeof json.readOnly === 'boolean') setReadOnly(json.readOnly);
       if (json.activeAgentId && json.activeAgentId !== activeId.current) {
@@ -60,11 +76,17 @@ export default function Console({
         setAgentId(json.activeAgentId);
       }
       if (json.error) setActionError(json.error);
-    } catch {
+    } catch (error) {
       failures.current += 1;
-      if (failures.current >= 3) {
-        setConnError('lost the connection to the local server — is it still running?');
+      const reason = error instanceof Error ? error.message : 'unknown error';
+      if (failures.current >= 2) {
+        setBootStage('failed');
+        setConnError(reason);
+      } else {
+        setBootStage('slow');
       }
+    } finally {
+      inFlight.current = false;
     }
   }, []);
 
@@ -182,8 +204,20 @@ export default function Console({
     return (
       <main className="cabinet">
         <div className="boot">
-          <span className="boot__pulse" aria-hidden="true" />
-          Connecting to devnet
+          {bootStage === 'failed' ? (
+            <div className="boot__failed">
+              <p className="boot__title">Could not reach Solana</p>
+              <p className="boot__reason">{connError}</p>
+              <button className="switch switch--armed" onClick={() => void loadState(true)}>
+                Try again
+              </button>
+            </div>
+          ) : (
+            <>
+              <span className="boot__pulse" aria-hidden="true" />
+              {bootStage === 'slow' ? 'devnet is slow — still connecting' : 'Connecting to devnet'}
+            </>
+          )}
         </div>
       </main>
     );
