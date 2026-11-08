@@ -1,0 +1,56 @@
+---
+title: Best practices
+description: How to set limits, read refusals, and keep a demo — or a fleet — from going wrong.
+---
+
+## Set limits you would be comfortable losing
+
+The right daily budget is the amount you would not mind losing to a bug. The right per-call cap is
+the most you would pay for a single answer without checking.
+
+| Situation | Per-call | Daily |
+| --- | --- | --- |
+| Trying the product | $0.10 | $1.00 |
+| A working agent | $0.25 | $10.00 |
+| Budgeted monitoring | $0.50 | $50.00 |
+
+There is no ceiling imposed by Stipend. There is also no safety net beyond the caps you set: an
+agent with a $500 daily budget and a broken loop will spend $500.
+
+## Treat a refusal as data, not an error
+
+A refused call means the policy did its job. The reason names the exact limit. Two rules:
+
+1. **Never retry a refusal.** It will be refused again; a retry loop is how you turn one bug into
+   hundreds of ledger rows.
+2. **Report it to whoever set the limit.** The refusal reason is written for a human.
+
+## Use the allowlist when the vendor list is known
+
+An allowlist turns "any vendor" into "these three vendors, forever". It is the cheapest protection
+against a prompt-injected agent deciding to buy from somewhere new.
+
+## Ask for status before spending
+
+`agent_status` is free. An agent that checks its budget before buying avoids two failure modes:
+surprise refusals and a half-finished task it cannot pay to complete.
+
+## Do not top up reflexively
+
+If an agent keeps running out, the fix is usually a smaller task or a higher cap — not a bigger
+wallet. A wallet that refills itself hides the signal you need.
+
+## Keep the view key for sharing
+
+The owner key can move money. Put it in the agent's environment and nowhere else. Use the view key
+for dashboards, screenshots, and teammates.
+
+## Watch settle time as a health signal
+
+Median settle time of 100–300ms is normal on devnet. A run of multi-second confirms usually means
+the public RPC is throttling; a dedicated RPC endpoint fixes it.
+
+## Prove the refusal in a demo
+
+Nothing communicates the product faster than lowering the cap mid-demo and showing a purchase
+refused with a reason and no signature. Do it in every demo — it is the whole thesis in one click.

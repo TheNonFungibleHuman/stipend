@@ -1,0 +1,86 @@
+---
+title: HTTP API
+description: The four endpoints behind the product, for agents that do not speak MCP.
+---
+
+All endpoints take and return JSON. Amounts are integer base units of the demo mint (6 decimals), so
+`40000` is `$0.04`.
+
+## `POST /api/paid/{serviceId}`
+
+The vendor. Without proof it challenges; with proof it verifies and answers.
+
+**Without a payment header** — `402 Payment Required`
+
+```json
+{
+  "error": "payment required",
+  "accepts": {
+    "scheme": "exact",
+    "network": "solana:devnet",
+    "serviceId": "market-intel",
+    "price": 40000,
+    "payee": "4Nd1…",
+    "mint": "4brU…"
+  }
+}
+```
+
+**With `x-payment: <base64 proof>`** — `200 OK`
+
+```json
+{
+  "serviceId": "market-intel",
+  "engine": "fetch",
+  "source": "live",
+  "output": { "signals": [ … ] },
+  "receipt": { "signature": "5j7s…", "slot": 519936076 }
+}
+```
+
+Errors: `401` unknown agent token, `402` unverified payment, `404` unknown service, `502` vendor
+failed after settlement.
+
+## `POST /api/agents/{id}/authorize`
+
+The wallet service. Checks the policy, then signs.
+
+```json
+{ "serviceId": "market-intel" }
+```
+
+`200 OK` — `{ "header": "<base64 proof>", "signature": "…", "settleMs": 118, "price": 40000 }`
+
+`403 Forbidden` — `{ "error": "refused by policy", "code": "per-call", "reason": "$5.00 is over the $0.10 per-call cap" }`
+
+Requires `x-agent-token` matching that agent.
+
+## `GET /api/agents/{id}/status`
+
+Free. What an agent checks before spending. Requires `x-agent-token`.
+
+```json
+{
+  "agent": { "id": "8798951c", "name": "Atlas", "balance": 98320000, "policy": { … } },
+  "spentToday": 1180000,
+  "remainingToday": 48820000,
+  "callsLeft": 1952,
+  "services": [ { "id": "market-intel", "name": "Signal Search", "price": 40000 } ]
+}
+```
+
+## `PATCH /api/agents/{id}`
+
+Change limits. Requires the owner key when one is presented; a view key is rejected with `403`.
+
+```json
+{ "perCallCap": 250000, "dailyCap": 25000000 }
+```
+
+## Headers
+
+| Header | Used on | Meaning |
+| --- | --- | --- |
+| `x-agent-token` | every call | The owner key. Identifies and authorises the agent. |
+| `x-payment` | paid endpoints | Base64 proof returned by `authorize`. |
+| `x-payment-required` | `402` responses | Always `exact`. |

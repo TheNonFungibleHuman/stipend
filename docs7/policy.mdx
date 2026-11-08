@@ -1,0 +1,42 @@
+---
+title: Policy
+description: The four checks, the order they run in, and what a refusal means.
+---
+
+The policy is a pure function applied between the quote and the signature. It has no side effects and
+no network access, which is why it can be reasoned about.
+
+## Order of checks
+
+1. **Payee allowlist** — when set, only these vendor ids may be paid.
+2. **Per-call cap** — a single purchase above this is refused.
+3. **Rolling 24h budget** — a purchase that would cross it is refused.
+4. **Balance** — the agent cannot spend tokens it does not hold.
+
+The first failure wins and becomes the reason.
+
+## What a refusal is
+
+Not a failed transaction. No transaction is built, no fee is paid, and the signature does not exist.
+The ledger records a `refused` row with the reason, and the reason returns as data to the caller:
+
+```json
+{ "error": "refused by policy", "code": "per-call", "reason": "$5.00 is over the $0.10 per-call cap" }
+```
+
+Codes: `not-allowed`, `per-call`, `daily`, `balance`.
+
+## Editing limits
+
+Limits are editable from the console at any time and apply to the next purchase, never to one
+already signed. An agent cannot edit its own limits — that is an operator action.
+
+## Suggested starting points
+
+| Situation | Per-call | Daily |
+| --- | --- | --- |
+| Exploration | $0.10 | $1.00 |
+| Working agent | $0.25 | $10.00 |
+| Budgeted monitoring | $0.50 | $50.00 |
+
+There is no ceiling imposed by the product. The only hard limit is the agent's balance.

@@ -1,0 +1,54 @@
+---
+title: Get started
+description: Create an agent, set its limits, fund it, and run a paid task — all from the console.
+---
+
+You do not install anything to use Stipend. Everything below happens in the console at
+`STIPEND_URL`.
+
+## 1 · Open the console
+
+Go to `STIPEND_URL` and choose **Create your agent**. You will be asked for a name, a per-call cap
+and a daily budget.
+
+<Note>
+The limits are yours to set. Stipend imposes no ceiling — type any amount you are willing to lose.
+The only hard limit is that an agent cannot spend more than it holds.
+</Note>
+
+## 2 · Set the limits
+
+- **Per-call cap** — the most a single purchase may cost. A $0.10 cap refuses a $5.00 vendor.
+- **Daily budget** — a rolling 24-hour ceiling. When it is used up, the agent stops being able to buy.
+- **Payee allowlist** (optional) — restrict which vendors may be paid at all.
+
+These are checked *before* a signature exists. Lowering them is the fastest way to see the product
+work.
+
+## 3 · Fund the agent
+
+Press **Add 25 dUSD** in the Agent panel. That mints demo stablecoin from the treasury into the
+agent's wallet, and it appears in the ledger as a `funded` row — money entering the account is as
+visible as money leaving it.
+
+## 4 · Run a task
+
+In the console, press **Run pipeline**. The agent buys three services it does not control:
+
+| Step | Service | Price |
+| --- | --- | --- |
+| 1 | Signal Search — live public discussion | $0.04 |
+| 2 | Summariser — decision-grade notes | $0.06 |
+| 3 | Brief Writer — a one-page memo | $0.08 |
+
+Each step is a real `402 → authorize → retry` handshake. When it finishes, the ledger has three
+receipts with explorer links, and the memo is on screen.
+
+## 5 · Prove the cap
+
+Set the per-call cap to `$0.05` and run again. The `$0.04` call settles; the `$0.06` and `$0.08`
+calls are **refused** with the reason, and no signature is produced.
+
+<Card title="Then connect your own agent" icon="plug" href="/integration">
+  Hand the agent to Claude Code, Cursor, opencode, or any tool-capable runtime.
+</Card>

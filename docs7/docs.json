@@ -1,0 +1,28 @@
+{
+  "$schema": "https://context7.com/schema/docs7.json",
+  "name": "Stipend",
+  "description": "A budget for your AI agent, enforced before it signs anything.",
+  "colors": {
+    "primary": "#1D5047"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get started",
+        "pages": ["index", "get-started", "how-it-works"]
+      },
+      {
+        "group": "Guides",
+        "pages": ["integration", "use-cases", "best-practices"]
+      },
+      {
+        "group": "Reference",
+        "pages": ["tools", "api", "policy"]
+      },
+      {
+        "group": "Help",
+        "pages": ["troubleshooting", "faq"]
+      }
+    ]
+  }
+}

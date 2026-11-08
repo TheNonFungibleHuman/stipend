@@ -1,0 +1,87 @@
+---
+title: Connect your agent
+description: Three ways to attach a real agent — a paste-able prompt, an MCP config, or raw HTTP.
+---
+
+Each agent has **two keys**, and they are not interchangeable:
+
+| Key | Prefix | What it does |
+| --- | --- | --- |
+| **Owner key** | `stp_…` | The agent presents it to spend; it also opens your console with full control. Keep it private. |
+| **View key** | `stp_view_…` | Opens the same console read-only. Safe to share. Cannot spend, edit limits, or reveal the owner key. |
+
+Both are in the **Agent** panel of the console, behind Reveal and Copy.
+
+## Option 1 — paste a prompt (recommended)
+
+The console prints a prompt pre-filled with your keys. Give it to any tool-capable agent and it
+configures the MCP server itself:
+
+```text
+Add a tool server called "stipend" to my MCP configuration.
+
+Transport: stdio
+Command: node
+Args: ["/path/to/mcp/stipend-mcp.mjs"]
+Environment:
+  STIPEND_URL=STIPEND_URL
+  STIPEND_AGENT_ID=<your agent id>
+  STIPEND_AGENT_TOKEN=<your owner key>
+
+It provides four tools: agent_status, buy_signals, buy_notes, buy_brief.
+Call agent_status first when you are unsure about budget. Use buy_signals when I ask what
+people are currently saying about a topic. If a call is refused, do not retry it — report the
+refusal reason instead.
+```
+
+## Option 2 — MCP config
+
+```json
+{
+  "mcpServers": {
+    "stipend": {
+      "command": "node",
+      "args": ["/path/to/mcp/stipend-mcp.mjs"],
+      "env": {
+        "STIPEND_URL": "STIPEND_URL",
+        "STIPEND_AGENT_ID": "<your agent id>",
+        "STIPEND_AGENT_TOKEN": "<your owner key>"
+      }
+    }
+  }
+}
+```
+
+The server is one dependency-free file. It makes no network calls except to `STIPEND_URL`, and it
+holds no key material of its own.
+
+## Option 3 — raw HTTP
+
+If you would rather not use MCP, the same handshake is two requests:
+
+```bash
+# 1 · ask — a 402 comes back with a price
+curl -X POST STIPEND_URL/api/paid/market-intel \
+  -H "x-agent-token: $TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"query":"what are people saying about usage-based pricing"}'
+
+# 2 · authorise against the caps; 403 means refused
+curl -X POST STIPEND_URL/api/agents/$AGENT_ID/authorize \
+  -H "x-agent-token: $TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"serviceId":"market-intel"}'
+
+# 3 · retry with proof
+curl -X POST STIPEND_URL/api/paid/market-intel \
+  -H "x-agent-token: $TOKEN" \
+  -H "x-payment: $PAYMENT_HEADER" \
+  -H "content-type: application/json" \
+  -d '{"query":"what are people saying about usage-based pricing"}'
+```
+
+## Sharing a dashboard
+
+Copy the **read-only link** from the Agent panel (`/app?view=…`). It opens one agent's dashboard and
+nothing else: no spending, no limit edits, no owner key, no other agents. The owner link
+(`/app?token=…`) keeps full control — treat it like the money it can move.

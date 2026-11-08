@@ -1,0 +1,46 @@
+---
+title: Troubleshooting
+description: The failures that actually happen, and what each one means.
+---
+
+## "Connecting to devnet" never finishes
+
+The page loaded but the client never hydrated. On a network that blocks websockets this can happen
+to a locally served build; reload once. If it persists, the console URL is not reachable from your
+network — check the URL you were given.
+
+## "Funding required" on first load
+
+The demo instance needs devnet SOL for transaction fees, and the public RPC faucet is closed. The
+gate shows the treasury address; whoever operates the instance funds it once, then everything else
+builds itself. If you are not the operator, ask them.
+
+## A step says "computed deterministically"
+
+No model key on the instance, or the model call failed — the step note names the reason verbatim.
+The fallback exists so a run never dies mid-demo, but it is always labelled. It is not an error in
+your agent.
+
+## A call was refused
+
+That is the product working. The row gives the exact limit in words. Raise the limit in **Limits** if
+the purchase was legitimate; an agent cannot raise it for itself.
+
+## The signal vendor shows "cached snapshot"
+
+The live source was unreachable, so a cached set was served and labelled. It never claims a fetch it
+did not make. Re-run when the network is back for live results.
+
+## Settlement is slow
+
+The public devnet RPC throttles under load. 100–300ms is normal; multi-second confirms mean
+throttling. The instance can be pointed at a dedicated RPC endpoint to remove the ceiling.
+
+## A view link does not let me change anything
+
+Correct — that is the read-only key. Use the owner link (`/app?token=…`) to edit limits and spend.
+
+## Nothing shows in the ledger but the agent has a balance
+
+The balance is the wallet; the ledger only records events. A funded agent with no runs has an empty
+ledger until its first purchase.

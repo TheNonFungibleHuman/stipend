@@ -1,0 +1,51 @@
+---
+title: How a payment works
+description: The three-step handshake, what the vendor verifies, and where enforcement happens.
+---
+
+Every purchase is the same three steps. The agent performs the first and the third; the middle one
+is the wallet service, and it is the only place a signature exists.
+
+```text
+agent                       vendor                     wallet service
+  │  POST /api/paid/X ────────▶ │                          │
+  │ ◀──── 402 + price ───────── │                          │
+  │  POST /api/agents/:id/authorize ─────────────────────▶ │
+  │        (owner key)                                     │  1 allowlist
+  │                                                        │  2 per-call cap
+  │                                                        │  3 daily budget
+  │ ◀──── payment header ───────────────────────────────── │  sign + confirm
+  │  POST /api/paid/X  (x-payment) ─▶ │                    │
+  │                                   │ verify balance delta
+  │ ◀──── 200 + output + receipt ──── │                    │
+```
+
+## What the vendor checks
+
+It does not trust the client. It reads the transaction off devnet, sums the payee's holdings of the
+mint before and after, and requires the delta to be at least the quoted amount. It also rejects a
+signature it has already seen, so a payment cannot be replayed for a second call.
+
+## What the receipt contains
+
+A memo instruction travels with the transfer:
+
+```text
+stipend:v1:svc=market-intel:amt=40000:run=49ae9fa6
+```
+
+Service, amount in base units, and the run id — readable on any explorer without our help. The
+transfer and the receipt are the same transaction.
+
+## Why the treasury pays the fee
+
+The agent holds only the stablecoin; the treasury sponsors every transaction fee. That is what makes
+a four-cent sale net four cents instead of being eaten by the buyer's SOL balance, and it means an
+agent can never be stranded with tokens it cannot move.
+
+## What an agent cannot do
+
+- Raise its own cap — policy edits are an operator action.
+- Spend outside the allowlist.
+- Replay a settlement.
+- Move tokens it was not given.

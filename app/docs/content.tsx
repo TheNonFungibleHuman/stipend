@@ -30,57 +30,98 @@ export const DOCS: DocPage[] = [
       <>
         {p(
           <>
-            Stipend gives an AI agent its own wallet and a spending policy that is enforced{' '}
+            Stipend gives an AI agent its own wallet and a spending policy enforced{' '}
             <strong>between the price quote and the signature</strong>. The agent buys what it needs
             one call at a time; each purchase settles on Solana devnet in about a tenth of a second
             and leaves a receipt anyone can open in an explorer.
           </>,
         )}
-
+        {note(
+          <>
+            Throughout these docs, <code>STIPEND_URL</code> means the console URL you were given.
+            Everywhere you see it, substitute yours.
+          </>,
+        )}
         {h('The two guarantees')}
         {list([
           <>
-            <strong>A refused purchase is a signature that was never produced.</strong> The policy
-            runs before the transaction is built, so a blocked call moves no money and leaves a
-            record saying why.
+            <strong>A refusal is not a failure.</strong> The policy runs before the transaction is
+            built, so a blocked purchase is a signature that was never produced — and the record says
+            why.
           </>,
           <>
             <strong>Settlement is the authorisation.</strong> The vendor re-reads the payee&apos;s
-            token balance on chain before it returns a byte. There is no account, no API key and no
-            billing table to reconcile.
+            balance on chain before it returns a byte. No account, no API key, no billing table.
           </>,
         ])}
-
         {h('What it is not')}
         {list([
           'Not a router — nothing picks a vendor for you. Your agent decides what to buy.',
-          "Not your model provider. DeepSeek, OpenAI and Anthropic already bill per call and already cap spend; Stipend sits below them, on the vendors that will not sell you one call.",
+          'Not your model provider. DeepSeek, OpenAI and Anthropic already bill per call and cap spend; Stipend sits below them, on the vendors that will not sell you one call.',
           'Not a custodian of value. The demo stablecoin is minted by the treasury and worth nothing.',
         ])}
-
+        {h('When you do not need it')}
+        {p(
+          'If your agent only ever calls one vendor, that vendor already bills per call, and its own spend limit is enough — keep what you have. Stipend earns its place when the vendor count rises, when a vendor will not sell you a single call, or when you want one budget and one audit trail across all of them.',
+        )}
         {h('The pieces')}
         {list([
-          <>
-            <strong>Agents</strong> — a keypair, a token account, an API token, and a policy.
-          </>,
-          <>
-            <strong>Vendors</strong> — paid endpoints that answer <code>402</code> without proof and{' '}
-            <code>200</code> after verification.
-          </>,
-          <>
-            <strong>The wallet service</strong> — <code>/api/agents/:id/authorize</code>. The only
-            place a signature can be produced.
-          </>,
-          <>
-            <strong>The console</strong> — status, runs, limits, ledger, and the setup snippet for
-            your own agent.
-          </>,
+          <><strong>Agent</strong> — a keypair, a token account, two keys, and a policy.</>,
+          <><strong>Vendors</strong> — paid endpoints that answer 402 without proof and 200 after verification.</>,
+          <><strong>Wallet service</strong> — /api/agents/:id/authorize, the only place a signature exists.</>,
+          <><strong>Console</strong> — status, runs, limits, ledger, and the setup prompt for your own agent.</>,
         ])}
-
         {note(
           <>
-            Start with <Link href="/start">Create your agent</Link>, or read{' '}
+            Start with <Link href="/docs/get-started">Get started</Link>, or read{' '}
             <Link href="/docs/how-it-works">How a payment works</Link> first.
+          </>,
+        )}
+      </>
+    ),
+  },
+  {
+    slug: 'get-started',
+    title: 'Get started',
+    summary: 'Create an agent, set its limits, fund it, and run a paid task — all in the console.',
+    body: (
+      <>
+        {p('You do not install anything to use Stipend. Everything below happens in the console.')}
+        {h('1 · Open the console')}
+        {p(
+          'Go to STIPEND_URL and choose Create your agent. You will be asked for a name, a per-call cap and a daily budget.',
+        )}
+        {note(
+          'The limits are yours to set. Stipend imposes no ceiling — type any amount you are willing to lose. The only hard limit is that an agent cannot spend more than it holds.',
+        )}
+        {h('2 · Set the limits')}
+        {list([
+          <><strong>Per-call cap</strong> — the most a single purchase may cost. A $0.10 cap refuses a $5.00 vendor.</>,
+          <><strong>Daily budget</strong> — a rolling 24-hour ceiling. When it is used up, the agent stops being able to buy.</>,
+          <><strong>Payee allowlist</strong> — optional; restrict which vendors may be paid at all.</>,
+        ])}
+        {p('These are checked before a signature exists. Lowering them is the fastest way to see the product work.')}
+        {h('3 · Fund the agent')}
+        {p(
+          'Press Add 25 dUSD in the Agent panel. That mints demo stablecoin from the treasury into the agent’s wallet, and it appears in the ledger as a funded row — money entering the account is as visible as money leaving it.',
+        )}
+        {h('4 · Run a task')}
+        {p('Press Run pipeline. The agent buys three services it does not control:')}
+        {code(`Signal Search   live public discussion for the goal     $0.04
+Summariser      decision-grade notes                      $0.06
+Brief Writer    a one-page memo                            $0.08`)}
+        {p(
+          'Each step is a real 402 → authorize → retry handshake. When it finishes, the ledger has three receipts with explorer links, and the memo is on screen.',
+        )}
+        {h('5 · Prove the cap')}
+        {p(
+          'Set the per-call cap to $0.05 and run again. The $0.04 call settles; the $0.06 and $0.08 calls are refused with the reason, and no signature is produced.',
+        )}
+        {h('6 · Connect your own agent')}
+        {p(
+          <>
+            Copy the prompt from the Agent panel into Claude Code, Cursor or opencode. See{' '}
+            <Link href="/docs/integration">Connect your agent</Link>.
           </>,
         )}
       </>
@@ -89,17 +130,17 @@ export const DOCS: DocPage[] = [
   {
     slug: 'how-it-works',
     title: 'How a payment works',
-    summary: 'The three-step handshake, and where enforcement actually happens.',
+    summary: 'The three-step handshake, what the vendor verifies, and where enforcement happens.',
     body: (
       <>
         {p(
-          'Every purchase is the same three steps. The agent only performs the first and the third; the middle one is the wallet service, and it is the only place a signature exists.',
+          'Every purchase is the same three steps. The agent performs the first and the third; the middle one is the wallet service, and it is the only place a signature exists.',
         )}
         {code(`agent                       vendor                    wallet service
   │  POST /api/paid/X ─────────▶ │                            │
   │ ◀──── 402 + price ────────── │                            │
   │  POST /api/agents/:id/authorize ──────────────────────────▶ │
-  │        (x-agent-token)                                     │  1 allowlist
+  │        (owner key)                                         │  1 allowlist
   │                                                           │  2 per-call cap
   │                                                           │  3 daily budget
   │ ◀──── payment header ───────────────────────────────────── │  sign + confirm
@@ -111,97 +152,68 @@ export const DOCS: DocPage[] = [
           'It does not trust the client. It reads the transaction off devnet, sums the payee’s holdings of the mint before and after, and requires the delta to be at least the quoted amount. It also rejects a signature it has already seen, so a payment cannot be replayed for a second call.',
         )}
         {h('What the receipt contains')}
-        {p(
-          'A memo instruction travels with the transfer:',
-        )}
         {code('stipend:v1:svc=market-intel:amt=40000:run=49ae9fa6')}
         {p(
           'Service, amount in base units, and the run id — readable on any explorer without our help. The transfer and the receipt are the same transaction.',
         )}
         {h('Why the treasury pays the fee')}
         {p(
-          'The agent holds only the stablecoin; the treasury sponsors every transaction fee. That is what makes a four-cent sale net four cents instead of being eaten by the buyer’s SOL balance. It also means the agent cannot be stranded with tokens it cannot move.',
+          'The agent holds only the stablecoin; the treasury sponsors every fee. That is what makes a four-cent sale net four cents, and it means an agent can never be stranded with tokens it cannot move.',
         )}
-      </>
-    ),
-  },
-  {
-    slug: 'quickstart',
-    title: 'Quickstart',
-    summary: 'From clone to a settled payment in five minutes.',
-    body: (
-      <>
-        {code(`pnpm install
-cp .env.example .env        # DEEPSEEK_API_KEY is optional
-pnpm build && pnpm start    # http://127.0.0.1:4310`)}
-        {note(
-          <>
-            Use <code>pnpm build && pnpm start</code>, not <code>pnpm dev</code>. On machines behind
-            a proxy that blocks Next&apos;s HMR websocket, dev mode never hydrates. See{' '}
-            <Link href="/docs/troubleshooting">Troubleshooting</Link>.
-          </>,
-          'warn',
-        )}
-        {h('1 · Fund the fee wallet once')}
-        {p(
-          'The public devnet RPC faucet is closed, so the app shows a funding gate with the treasury address on first load. Send it ~0.5 devnet SOL from faucet.solana.com. After that the mint, wallets and accounts build themselves.',
-        )}
-        {h('2 · Create an agent')}
-        {p(
-          'Open /start, name it, set a per-call cap and a daily budget. You get back a wallet address, an API token and a console scoped to that agent. Press Add 25 dUSD to give it runway.',
-        )}
-        {h('3 · Run it')}
-        {p(
-          'In the console, press Run pipeline. The agent buys three services, each one a real 402 handshake, and the ledger fills with receipts you can open.',
-        )}
-        {h('4 · Prove the cap')}
-        {p(
-          'Set the per-call cap to $0.05 and run again. The $0.04 call settles; the $0.06 and $0.08 calls are refused with the reason and no signature.',
-        )}
-        {h('5 · Hand it to your own agent')}
-        {p(
-          <>
-            Copy the prompt from the Agent panel into Claude Code, Cursor or opencode. See{' '}
-            <Link href="/docs/integration">Integration</Link>.
-          </>,
-        )}
+        {h('What an agent cannot do')}
+        {list([
+          'Raise its own cap — policy edits are an operator action.',
+          'Spend outside the allowlist.',
+          'Replay a settlement.',
+          'Move tokens it was not given.',
+        ])}
       </>
     ),
   },
   {
     slug: 'integration',
-    title: 'Integration',
+    title: 'Connect your agent',
     summary: 'Three ways to attach a real agent: a prompt, an MCP config, or raw HTTP.',
     body: (
       <>
-        {p(
-          'The API token is not an LLM key. It never touches your model provider. It identifies one agent to the vendors and to the wallet service, and it can only authorise spending inside that agent’s caps.',
-        )}
+        {p('Each agent has two keys, and they are not interchangeable:')}
+        {list([
+          <><strong>Owner key</strong> (stp_…) — the agent presents it to spend; it also opens your console with full control. Keep it private.</>,
+          <><strong>View key</strong> (stp_view_…) — opens the same console read-only. Safe to share: it cannot spend, edit limits, or reveal the owner key.</>,
+        ])}
         {h('Option 1 — paste a prompt (recommended)')}
         {p(
-          'The console prints a pre-filled prompt. Give it to any tool-capable agent and it installs the MCP server itself:',
+          'The console prints a prompt pre-filled with your keys. Give it to any tool-capable agent and it configures the MCP server itself:',
         )}
         {code(`Add a tool server called "stipend" to my MCP configuration.
+
 Transport: stdio
 Command: node
-Args: ["/absolute/path/to/mcp/stipend-mcp.mjs"]
-Environment: STIPEND_URL, STIPEND_AGENT_ID, STIPEND_AGENT_TOKEN`)}
+Args: ["/path/to/mcp/stipend-mcp.mjs"]
+Environment:
+  STIPEND_URL=STIPEND_URL
+  STIPEND_AGENT_ID=<your agent id>
+  STIPEND_AGENT_TOKEN=<your owner key>
+
+It provides four tools: agent_status, buy_signals, buy_notes, buy_brief.
+Call agent_status first when you are unsure about budget. If a call is refused,
+do not retry it — report the refusal reason instead.`)}
         {h('Option 2 — MCP config')}
         {code(`{
   "mcpServers": {
     "stipend": {
       "command": "node",
-      "args": ["/absolute/path/to/mcp/stipend-mcp.mjs"],
+      "args": ["/path/to/mcp/stipend-mcp.mjs"],
       "env": {
-        "STIPEND_URL": "http://127.0.0.1:4310",
-        "STIPEND_AGENT_ID": "<id>",
-        "STIPEND_AGENT_TOKEN": "<stp_...>"
+        "STIPEND_URL": "STIPEND_URL",
+        "STIPEND_AGENT_ID": "<your agent id>",
+        "STIPEND_AGENT_TOKEN": "<your owner key>"
       }
     }
   }
 }`)}
         {p(
-          'Tools exposed: agent_status, buy_signals, buy_notes, buy_brief. The 402 handshake happens inside the server, so your agent sees a tool result and a receipt.',
+          'The server is one dependency-free file. It makes no network calls except to STIPEND_URL and holds no key material of its own.',
         )}
         {h('Option 3 — raw HTTP')}
         {code(`// 1 · ask; a 402 comes back with a price
@@ -218,141 +230,258 @@ POST /api/agents/<id>/authorize
 POST /api/paid/market-intel
   x-agent-token: stp_...
   x-payment: <header>`)}
-        {h('Two keys per agent')}
+        {h('Sharing a dashboard')}
         {p(
-          'Each agent carries two credentials, and they are not interchangeable:',
+          'Copy the read-only link from the Agent panel (/app?view=…). It opens one agent’s dashboard and nothing else: no spending, no limit edits, no owner key, no other agents. The owner link (/app?token=…) keeps full control — treat it like the money it can move.',
+        )}
+      </>
+    ),
+  },
+  {
+    slug: 'use-cases',
+    title: 'Use cases',
+    summary: 'Six things an agent can buy per call that it could not buy at all before.',
+    body: (
+      <>
+        {p(
+          'Every case below has the same shape: a vendor that would normally require an account, a card on file, and a plan you cannot cancel per call.',
+        )}
+        {h('1 · Pricing and positioning research')}
+        {p(
+          'An agent asked to write a launch memo buys live discussion about the category, distils it into notes, and writes the memo. About $0.18 for the whole run, versus a research seat per month.',
+        )}
+        {h('2 · Competitive monitoring')}
+        {p(
+          'A scheduled agent checks what changed in competitors’ public pricing and release notes once a day. At four cents a check, a month of daily monitoring costs about $1.20 — cheaper than one seat, and no account with any site it reads.',
+        )}
+        {h('3 · Due diligence on a token or a market')}
+        {p(
+          'Before an agent acts on a market view, it buys current signal and a summary rather than trusting a model’s memory. The receipt is the provenance: you can show exactly what it read and when.',
+        )}
+        {h('4 · Enriching a dataset, one record at a time')}
+        {p(
+          'A pipeline needs an OCR pass, a page render, or a classification per row. Per-record purchase means you pay for the rows you process, and a failure stops at one record instead of burning a monthly quota.',
+        )}
+        {h('5 · Incident triage')}
+        {p(
+          'An on-call agent buys a summary of what changed on a status page and a search for whether others see the same failure. Two cents of data at 3am, instead of a human tabbing through dashboards.',
+        )}
+        {h('6 · Giving a non-human buyer an actual budget')}
+        {p(
+          'Any workflow where you want an agent to spend — but only inside limits you set, with a record of every refusal — is the same shape. The vendor does not matter; the control does.',
+        )}
+      </>
+    ),
+  },
+  {
+    slug: 'best-practices',
+    title: 'Best practices',
+    summary: 'How to set limits, read refusals, and keep an agent from going wrong.',
+    body: (
+      <>
+        {h('Set limits you would be comfortable losing')}
+        {p(
+          'The right daily budget is the amount you would not mind losing to a bug. The right per-call cap is the most you would pay for one answer without checking.',
         )}
         {list([
-          <>
-            <strong>The owner key</strong> (<code>stp_…</code>) — presented by the agent to spend, and
-            it opens the owner console at <code>/app?token=…</code>. That console can edit limits,
-            fund the wallet and run jobs. Keep it private.
-          </>,
-          <>
-            <strong>The view key</strong> (<code>stp_view_…</code>) — <code>/app?view=…</code> opens
-            the same dashboard read-only. It cannot spend, change limits, reveal the owner key, or
-            see any other agent on the machine. This is the one you share.
-          </>,
+          'Trying the product — $0.10 a call, $1.00 a day.',
+          'A working agent — $0.25 a call, $10 a day.',
+          'Budgeted monitoring — $0.50 a call, $50 a day.',
         ])}
         {note(
-          <>
-            A keyed link shows only its own agent — there is no switcher, because a link must never
-            expose someone else&apos;s agents. Both links are generated per agent and appear in the
-            Agent panel.
-          </>,
+          'There is no ceiling imposed by Stipend. There is also no safety net beyond the caps you set: an agent with a $500 daily budget and a broken loop will spend $500.',
+          'warn',
         )}
+        {h('Treat a refusal as data, not an error')}
+        {p(
+          'A refused call means the policy did its job, and the reason names the exact limit. Two rules: never retry a refusal (it will be refused again), and report the reason to whoever set the limit — it is written for a human.',
+        )}
+        {h('Use the allowlist when the vendor list is known')}
+        {p(
+          'An allowlist turns “any vendor” into “these three, forever”. It is the cheapest protection against a prompt-injected agent deciding to buy from somewhere new.',
+        )}
+        {h('Ask for status before spending')}
+        {p(
+          'agent_status is free. An agent that checks its budget first avoids surprise refusals and half-finished tasks it cannot pay to complete.',
+        )}
+        {h('Do not top up reflexively')}
+        {p(
+          'If an agent keeps running out, the fix is usually a smaller task or a higher cap — not a bigger wallet. A wallet that refills itself hides the signal you need.',
+        )}
+        {h('Keep the view key for sharing')}
+        {p(
+          'The owner key can move money. Put it in the agent’s environment and nowhere else. Use the view key for dashboards, screenshots and teammates.',
+        )}
+        {h('Prove the refusal in a demo')}
+        {p(
+          'Nothing communicates the product faster than lowering the cap mid-demo and showing a purchase refused with a reason and no signature. Do it in every demo — it is the thesis in one click.',
+        )}
+      </>
+    ),
+  },
+  {
+    slug: 'tools',
+    title: 'Tools',
+    summary: 'The four MCP tools, what they cost, and what they return.',
+    body: (
+      <>
+        {p(
+          'The MCP server exposes four tools. Three spend money; one is free. Prices are per call and are enforced by the agent’s policy like any other purchase.',
+        )}
+        {h('agent_status — free')}
+        {p(
+          'Returns balance, per-call cap, daily cap, spend in the last 24 hours, calls left at the cap, and the price list. Call it before spending when unsure.',
+        )}
+        {code('{ }')}
+        {h('buy_signals — $0.04')}
+        {p(
+          'Live public discussion for a query, fetched at call time. Returns up to six items with title, points, comment count, date and a discussion link — plus the transaction that paid for it.',
+        )}
+        {code('{ "query": "usage-based pricing for developer tools" }')}
+        {h('buy_notes — $0.06')}
+        {p(
+          'Decision-grade notes distilled from the signals. Reuses the threads already bought in this session, so you do not pay twice for the same fetch. Returns three to five notes labelled with the engine that wrote them.',
+        )}
+        {code('{ "query": "how should we price per call?" }')}
+        {h('buy_brief — $0.08')}
+        {p('A one-page memo: recommendation first, then reasoning, then risk. 120 words or fewer.')}
+        {code('{ "query": "should we move to usage-based pricing this quarter?" }')}
+        {h('What a refusal looks like')}
+        {p(
+          'Every paid tool can return an error with a reason instead of data: “refused by policy: $5.00 is over the $0.10 per-call cap”. No money moved, no signature exists, and the ledger has a refused row.',
+        )}
+        {h('Chaining')}
+        {p(
+          'buy_notes and buy_brief use whatever was bought earlier in the session. A typical run is buy_signals → buy_notes → buy_brief: about $0.18 and a memo grounded in threads fetched in the last minute.',
+        )}
+      </>
+    ),
+  },
+  {
+    slug: 'api',
+    title: 'HTTP API',
+    summary: 'The four endpoints behind the product, for agents that do not speak MCP.',
+    body: (
+      <>
+        {p(
+          'All endpoints take and return JSON. Amounts are integer base units of the demo mint (6 decimals), so 40000 is $0.04.',
+        )}
+        {h('POST /api/paid/{serviceId}')}
+        {p('The vendor. Without proof it challenges; with proof it verifies and answers.')}
+        {code(`402 Payment Required
+{
+  "error": "payment required",
+  "accepts": {
+    "scheme": "exact", "network": "solana:devnet",
+    "serviceId": "market-intel", "price": 40000,
+    "payee": "4Nd1…", "mint": "4brU…"
+  }
+}
+
+200 OK  (with x-payment)
+{
+  "serviceId": "market-intel", "engine": "fetch", "source": "live",
+  "output": { "signals": [ … ] },
+  "receipt": { "signature": "5j7s…", "slot": 519936076 }
+}`)}
+        {p('Errors: 401 unknown agent token, 402 unverified payment, 404 unknown service, 502 vendor failed after settlement.')}
+        {h('POST /api/agents/{id}/authorize')}
+        {p('The wallet service. Checks the policy, then signs. Requires x-agent-token for that agent.')}
+        {code(`200 → { "header": "<base64 proof>", "signature": "…", "settleMs": 118, "price": 40000 }
+403 → { "error": "refused by policy", "code": "per-call",
+        "reason": "$5.00 is over the $0.10 per-call cap" }`)}
+        {h('GET /api/agents/{id}/status')}
+        {p('Free. What an agent checks before spending. Requires x-agent-token.')}
+        {code(`{
+  "agent": { "id": "8798951c", "name": "Atlas", "balance": 98320000, "policy": { … } },
+  "spentToday": 1180000, "remainingToday": 48820000, "callsLeft": 1952,
+  "services": [ { "id": "market-intel", "name": "Signal Search", "price": 40000 } ]
+}`)}
+        {h('PATCH /api/agents/{id}')}
+        {p(
+          'Change limits. Requires the owner key when one is presented; a view key is rejected with 403. Limits apply to the next purchase, never to one already signed.',
+        )}
+        {code('{ "perCallCap": 250000, "dailyCap": 25000000 }')}
+        {h('Headers')}
+        {list([
+          <><code>x-agent-token</code> — the owner key. Identifies and authorises the agent.</>,
+          <><code>x-payment</code> — base64 proof returned by authorize.</>,
+          <><code>x-payment-required</code> — present on 402 responses; always “exact”.</>,
+        ])}
       </>
     ),
   },
   {
     slug: 'policy',
     title: 'Policy',
-    summary: 'The three limits, the order they run in, and what a refusal means.',
+    summary: 'The four checks, the order they run in, and what a refusal means.',
     body: (
       <>
         {p(
-          'The policy is a pure function, applied between the quote and the signature. It has no side effects and no network access, which is why it can be reasoned about.',
+          'The policy is a pure function applied between the quote and the signature. It has no side effects and no network access, which is why it can be reasoned about.',
         )}
         {h('Order of checks')}
         {list([
-          <>
-            <strong>Payee allowlist</strong> — when set, only these vendor ids may be paid.
-          </>,
-          <>
-            <strong>Per-call cap</strong> — a single purchase above this is refused.
-          </>,
-          <>
-            <strong>Rolling 24h budget</strong> — a purchase that would cross it is refused.
-          </>,
-          <>
-            <strong>Balance</strong> — the agent cannot spend tokens it does not hold.
-          </>,
+          <><strong>Payee allowlist</strong> — when set, only these vendor ids may be paid.</>,
+          <><strong>Per-call cap</strong> — a single purchase above this is refused.</>,
+          <><strong>Rolling 24h budget</strong> — a purchase that would cross it is refused.</>,
+          <><strong>Balance</strong> — the agent cannot spend tokens it does not hold.</>,
         ])}
+        {p('The first failure wins and becomes the reason.')}
         {h('What a refusal is')}
         {p(
-          'It is not a failed transaction. No transaction is built, no fee is paid, and the signature does not exist. The ledger records a `refused` row with the reason, and — for an agent calling through MCP or HTTP — the reason comes back as data the agent can relay to a human.',
+          'Not a failed transaction. No transaction is built, no fee is paid, and the signature does not exist. The ledger records a refused row with the reason, and the reason returns as data to the caller.',
         )}
-        {code(`403 { "error": "refused by policy",
-      "code": "per-call",
+        {code(`403 { "error": "refused by policy", "code": "per-call",
       "reason": "$5.00 is over the $0.10 per-call cap" }`)}
-        {h('What an agent cannot do')}
-        {list([
-          'Raise its own cap — policy edits are an operator action in the console.',
-          'Spend outside the allowlist.',
-          'Replay a settlement: a signature already used for one call is rejected.',
-          'Move tokens it was not given.',
-        ])}
+        {p('Codes: not-allowed, per-call, daily, balance.')}
+        {h('Editing limits')}
+        {p(
+          'Limits are editable from the console at any time and apply to the next purchase, never to one already signed. An agent cannot edit its own limits — that is an operator action.',
+        )}
         {h('Suggested starting points')}
         {list([
-          'Exploration: $0.10 a call, $1.00 a day — enough for ~20 purchases.',
-          'Production-ish: $0.25 a call, $10 a day, with an allowlist of the vendors you have reviewed.',
-          'There is no ceiling imposed by Stipend: type any amount you are willing to lose. The only hard limit is that the agent cannot spend more than it holds.',
+          'Exploration: $0.10 a call, $1.00 a day.',
+          'Working agent: $0.25 a call, $10 a day.',
+          'Budgeted monitoring: $0.50 a call, $50 a day.',
+          'There is no ceiling imposed by the product. The only hard limit is the agent’s balance.',
         ])}
-      </>
-    ),
-  },
-  {
-    slug: 'operations',
-    title: 'Operations',
-    summary: 'Reading the console, funding an agent, and what the numbers mean.',
-    body: (
-      <>
-        {h('The status strip')}
-        {list([
-          'Spent today / budget left — the rolling window the policy uses.',
-          'Agent balance — stablecoin held by this agent right now.',
-          'Paid calls and refused calls — refusals are first-class, not errors.',
-          'Settle time — median sign-to-confirmed latency for this agent.',
-          'Errors — calls that failed for reasons other than the policy.',
-        ])}
-        {h('The ledger')}
-        {p(
-          'One row per event: time, service, amount, decision, balance after, and a receipt link. `settled` rows carry a signature; `refused` rows say why and show “not signed”; `funded` rows are top-ups, so money entering the account is as visible as money leaving it.',
-        )}
-        {h('Funding an agent')}
-        {p(
-          'Add 25 dUSD mints demo stablecoin from the treasury into the agent’s wallet. On a real deployment this would be a transfer from your own wallet, and the ledger row would look the same.',
-        )}
-        {h('Run history')}
-        {p(
-          'Runs are derived from the ledger, grouped by run id, so the list survives a server restart. A run shows how many calls settled, how many were refused, and the total spend.',
-        )}
-        {h('Latency expectations')}
-        {p(
-          'Settlement is typically 100–300ms on devnet. The public RPC occasionally takes several seconds under load; the client retries with backoff rather than reporting a failure. Model-written steps add 5–12 seconds because the model reasons before it answers.',
-        )}
       </>
     ),
   },
   {
     slug: 'troubleshooting',
     title: 'Troubleshooting',
-    summary: 'The five things that actually go wrong, and what each one means.',
+    summary: 'The failures that actually happen, and what each one means.',
     body: (
       <>
-        {h('“The page is stuck on Connecting to devnet”')}
-        {p(
-          'You are running `pnpm dev` and the page never hydrated. Next’s HMR websocket is being blocked (common behind a corporate proxy). Use `pnpm build && pnpm start`.',
-        )}
-        {h('“Funding required” on first load')}
-        {p(
-          'The devnet RPC faucet is closed (`410 Gone`), so nothing can airdrop itself. Send devnet SOL to the treasury address shown on the gate, once, then press check again.',
-        )}
         {h('A step says “computed deterministically”')}
         {p(
-          'No model key, or the model call failed — the step note names the reason verbatim. Check `DEEPSEEK_API_KEY` in `.env` and restart. The fallback exists so a demo never dies, but it is always labelled.',
+          'No model key on the instance, or the model call failed — the step note names the reason verbatim. The fallback exists so a run never dies mid-demo, but it is always labelled.',
         )}
         {h('A call was refused')}
         {p(
-          'That is the product working. The row gives the exact limit: per-call cap, daily budget, allowlist, or balance. Raise the limit in Limits if the purchase was legitimate — an agent cannot raise it for itself.',
+          'That is the product working. The row gives the exact limit in words. Raise the limit in Limits if the purchase was legitimate; an agent cannot raise it for itself.',
         )}
         {h('The signal vendor shows “cached snapshot”')}
         {p(
-          'The live source was unreachable, so a cached set was served and labelled. It never claims a fetch it did not make. Re-run when the network is back to get live results.',
+          'The live source was unreachable, so a cached set was served and labelled. It never claims a fetch it did not make. Re-run when the network is back.',
         )}
-        {h('Everything is slow')}
+        {h('Settlement is slow')}
         {p(
-          'The public devnet RPC rate-limits under load. A dedicated Helius or QuickNode devnet URL in `HELIUS_RPC_URL` removes the ceiling.',
+          'The public devnet RPC throttles under load. 100–300ms is normal; multi-second confirms mean throttling. A dedicated RPC endpoint removes the ceiling.',
+        )}
+        {h('A view link will not let me change anything')}
+        {p(
+          'Correct — that is the read-only key. Use the owner link (/app?token=…) to edit limits and spend.',
+        )}
+        {h('The ledger is empty but the agent has a balance')}
+        {p(
+          'The balance is the wallet; the ledger only records events. A funded agent with no runs has an empty ledger until its first purchase.',
+        )}
+        {h('“Funding required” on first load')}
+        {p(
+          'The demo instance needs devnet SOL for fees and the public RPC faucet is closed. The gate shows the treasury address; whoever operates the instance funds it once, then everything else builds itself.',
         )}
       </>
     ),

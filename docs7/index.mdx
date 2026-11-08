@@ -1,0 +1,54 @@
+---
+title: Introduction
+description: What Stipend is, what it is not, and the two guarantees behind it.
+---
+
+Stipend gives an AI agent its own wallet and a spending policy that is enforced **between the price
+quote and the signature**. The agent buys what it needs one call at a time; each purchase settles on
+Solana devnet in about a tenth of a second and leaves a receipt anyone can open in an explorer.
+
+<Info>
+Throughout these docs, `STIPEND_URL` means the console URL you were given — for example
+`https://app.stipend.dev`. Everywhere you see it, substitute yours.
+</Info>
+
+## The two guarantees
+
+<CardGroup cols={2}>
+  <Card title="A refusal is not a failure" icon="shield">
+    The policy runs before the transaction is built. A blocked purchase is a signature that was
+    never produced, and the record says why.
+  </Card>
+  <Card title="Settlement is the authorisation" icon="receipt">
+    The vendor re-reads the payee's balance on chain before it returns a byte. There is no account,
+    no API key, and no billing table to reconcile.
+  </Card>
+</CardGroup>
+
+## What it is not
+
+- **Not a router.** Nothing picks a vendor for you. Your agent decides what to buy.
+- **Not your model provider.** DeepSeek, OpenAI and Anthropic already bill per call and already cap
+  spend. Stipend sits below them, on the vendors that will not sell you one call.
+- **Not a custodian of value.** The demo stablecoin (`dUSD`) is minted by the treasury and worth
+  nothing.
+
+## When you do not need it
+
+If your agent only ever calls one vendor, that vendor already bills per call, and its own spend
+limit is enough — keep what you have. Stipend earns its place when the vendor count rises, when a
+vendor will not sell you a single call, or when you want one budget and one audit trail across all
+of them.
+
+## The pieces
+
+| Piece | What it is |
+| --- | --- |
+| **Agent** | A keypair, a token account, two keys, and a policy |
+| **Vendors** | Paid endpoints that answer `402` without proof and `200` after verification |
+| **Wallet service** | `/api/agents/:id/authorize` — the only place a signature exists |
+| **Console** | Status, runs, limits, ledger, and the setup prompt for your own agent |
+
+<Card title="Next" icon="arrow-right" href="/get-started">
+  Create your first agent and run a paid task in two minutes.
+</Card>

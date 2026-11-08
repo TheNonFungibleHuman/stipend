@@ -1,0 +1,55 @@
+---
+title: FAQ
+description: The questions people actually ask, answered without hedging.
+---
+
+<AccordionGroup>
+  <Accordion title="Is this a router that picks the cheapest vendor?">
+    No. Nothing here chooses a vendor — your agent or your code decides. Stipend does the two things
+    that decision cannot do for itself: it pays a vendor that has no account for you, and it refuses
+    anything outside your limits before a signature exists.
+  </Accordion>
+
+  <Accordion title="My model provider already bills per call. What does this add?">
+    Different layer, and your model invoice is untouched. Your provider already bills per token and
+    already caps spend. Stipend is for everything else the agent needs: search, rendering, OCR,
+    datasets. Those normally want an account, a card on file and a monthly plan.
+  </Accordion>
+
+  <Accordion title="Does the end user need their own AI key?">
+    No. The vendors' reasoning is the vendor's cost, priced into the call. Your agent brings its own
+    model. The Stipend key authorises spending, nothing else.
+  </Accordion>
+
+  <Accordion title="Who holds the agent's private key?">
+    On the demo instance, the server does, so the flow works in a browser with no extension. In
+    production the key lives where the agent runs and the same key gates a signing service or a
+    policy program. The enforcement point moves; the guarantee does not.
+  </Accordion>
+
+  <Accordion title="What stops it from overspending?">
+    Four checks between the quote and the signature: allowlist, per-call cap, rolling daily budget,
+    balance. A refusal builds no transaction, pays no fee, and produces no signature.
+  </Accordion>
+
+  <Accordion title="What is dUSD?">
+    A devnet token with six decimals that the treasury mints, so an agent has something stable to
+    spend while you try the product. It is not real money and it is not redeemable.
+  </Accordion>
+
+  <Accordion title="Does a vendor need an account or a billing integration?">
+    No. It publishes a price on the `402`, then reads the payee's balance on chain before answering.
+    Payment and proof are the same object, so there is nothing to reconcile later.
+  </Accordion>
+
+  <Accordion title="Can a vendor overcharge me?">
+    It can quote anything. It cannot get paid above your per-call cap: the quote is checked before
+    signing, so an inflated price becomes a refusal with a line in the ledger.
+  </Accordion>
+
+  <Accordion title="When would I not need Stipend?">
+    If your agent only ever calls one vendor that already bills per call and has its own spend limit,
+    keep what you have. It earns its place when the vendor count rises or a vendor will not sell you
+    a single call.
+  </Accordion>
+</AccordionGroup>

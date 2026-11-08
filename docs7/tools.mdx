@@ -1,0 +1,68 @@
+---
+title: Tools
+description: The four tools the MCP server exposes, what they cost, and what they return.
+---
+
+The MCP server exposes four tools. Three spend money; one is free. Prices are per call and are
+enforced by the agent's policy like any other purchase.
+
+## `agent_status` — free
+
+The agent's wallet and limits. Call it before spending when you are unsure.
+
+```json
+{ }
+```
+
+Returns: balance, per-call cap, daily cap, spend in the last 24 hours, calls left at the cap, and
+the price list.
+
+## `buy_signals` — $0.04
+
+Live public discussion for a query. Real threads, fetched at call time.
+
+```json
+{ "query": "usage-based pricing for developer tools" }
+```
+
+Returns up to six items, each with title, points, comment count, date and a discussion link — plus
+the transaction that paid for it.
+
+## `buy_notes` — $0.06
+
+Decision-grade notes distilled from the signals. Uses the threads already bought in this session
+when they exist, so you are not paying twice for the same fetch.
+
+```json
+{ "query": "how should we price per call?" }
+```
+
+Returns three to five notes, labelled with the engine that wrote them (`written by …` or
+`computed deterministically`).
+
+## `buy_brief` — $0.08
+
+A one-page memo: recommendation first, then reasoning, then risk.
+
+```json
+{ "query": "should we move to usage-based pricing this quarter?" }
+```
+
+Returns prose, 120 words or fewer.
+
+## What a refusal looks like
+
+Every paid tool can return `isError` with a reason instead of data:
+
+```text
+refused by policy: $5.00 is over the $0.10 per-call cap
+```
+
+No money moved, no signature exists, and the ledger has a `refused` row. Do not retry — report the
+reason.
+
+## Chaining
+
+`buy_notes` and `buy_brief` use whatever was bought earlier in the session. A typical run is
+`buy_signals` → `buy_notes` → `buy_brief`, which costs about **$0.18** and produces a memo grounded
+in threads fetched in the last minute.
