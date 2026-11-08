@@ -38,7 +38,9 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 export function AgentPanel({ agent, snapshot, baseUrl, mcpPath, readOnly, onFund, funding }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [tab, setTab] = useState<'prompt' | 'config' | 'http'>('prompt');
-  const shareUrl = typeof window === 'undefined' ? '' : `${window.location.origin}/app?token=${agent.token}`;
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+  const ownerUrl = `${origin}/app?token=${agent.token}`;
+  const viewUrl = `${origin}/app?view=${agent.viewToken}`;
 
   const prompt = `Add a tool server called "stipend" to my MCP configuration.
 
@@ -157,16 +159,24 @@ const { output, receipt } = await paid.json();`;
 
       {readOnly ? (
         <p className="agentpanel__readonly">
-          This is a read-only view of one agent. It was opened with that agent&apos;s token, so it
-          can see the balance, the caps and every record — and it cannot spend, edit limits, or see
-          any other agent on this machine.
+          Read-only view of one agent. It was opened with a view key, so it can see the balance, the
+          limits and every record — and it cannot spend, change limits, read the agent&apos;s token,
+          or see any other agent on this machine.
         </p>
       ) : (
         <div className="agentpanel__share">
-          <span className="agentpanel__sharelabel">
-            Share this dashboard — the token is the key, read-only
-          </span>
-          <CopyButton value={shareUrl} label="Copy link" />
+          <div className="agentpanel__shareline">
+            <span className="agentpanel__sharelabel">
+              Your console link — full control, keep it private
+            </span>
+            <CopyButton value={ownerUrl} label="Copy" />
+          </div>
+          <div className="agentpanel__shareline">
+            <span className="agentpanel__sharelabel">
+              Read-only link — safe to share, cannot spend or edit
+            </span>
+            <CopyButton value={viewUrl} label="Copy" />
+          </div>
         </div>
       )}
 

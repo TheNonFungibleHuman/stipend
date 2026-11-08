@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
-import { getAgent, publicKeyOf } from '@/lib/agents';
+import { canMutate, getAgent, publicKeyOf } from '@/lib/agents';
 import { bootstrap, fundAgent, invalidateSnapshot, tokenBalanceOf } from '@/lib/bootstrap';
 import { AGENT_TOKEN_GRANT } from '@/lib/config';
 import { getState } from '@/lib/store';
@@ -12,8 +12,11 @@ export const dynamic = 'force-dynamic';
  * from the operator's wallet; here the treasury mints demo stablecoin so the
  * whole flow can be exercised end to end.
  */
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!(await canMutate(request, id))) {
+    return NextResponse.json({ error: 'that key does not belong to this agent' }, { status: 403 });
+  }
   const agent = await getAgent(id);
   if (!agent) return NextResponse.json({ error: 'no such agent' }, { status: 404 });
 

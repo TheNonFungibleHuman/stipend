@@ -19,8 +19,13 @@ export interface AgentRecord {
   name: string;
   /** Base58 secret key. Server-side only — never sent to the browser. */
   secret: string;
-  /** Bearer token the agent presents when it asks for data. */
+  /** Bearer token the agent presents when it asks for data, and the owner's console key. */
   token: string;
+  /**
+   * A second, weaker key: it opens this agent's dashboard read-only and can do
+   * nothing else. Sharing a dashboard must never hand over the key that spends.
+   */
+  viewToken: string;
   policy: Policy;
   createdAt: string;
   demo?: boolean;
@@ -31,6 +36,7 @@ export interface PublicAgent {
   name: string;
   address: string;
   token: string;
+  viewToken: string;
   policy: Policy;
   createdAt: string;
   demo: boolean;
@@ -63,7 +69,17 @@ async function write(agents: AgentRecord[]): Promise<void> {
 
 export async function allAgents(): Promise<AgentRecord[]> {
   if (!globalForAgents.__stipendAgents) {
-    globalForAgents.__stipendAgents = await read();
+    const records = await read();
+    // Records written before view tokens existed still need a share key.
+    let migrated = false;
+    for (const record of records) {
+      if (!record.viewToken) {
+        record.viewToken = `stp_view_${randomBytes(18).toString('base64url')}`;
+        migrated = true;
+      }
+    }
+    if (migrated) await write(records);
+    globalForAgents.__stipendAgents = records;
   }
   return globalForAgents.__stipendAgents;
 }
@@ -82,6 +98,7 @@ export function toPublic(record: AgentRecord, tokensRaw?: number): PublicAgent {
     name: record.name,
     address: addressOf(record),
     token: record.token,
+    viewToken: record.viewToken,
     policy: record.policy,
     createdAt: record.createdAt,
     demo: record.demo === true,
@@ -113,6 +130,7 @@ export async function createAgent(input: {
       name: input.name.trim().slice(0, 40) || 'Untitled agent',
       secret: bs58.encode(Keypair.generate().secretKey),
       token: `stp_${randomBytes(18).toString('base64url')}`,
+      viewToken: `stp_view_${randomBytes(18).toString('base64url')}`,
       policy: {
         perCallCap: input.policy?.perCallCap ?? DEFAULT_POLICY.perCallCap,
         dailyCap: input.policy?.dailyCap ?? DEFAULT_POLICY.dailyCap,
@@ -164,6 +182,24 @@ export function publicKeyOf(record: AgentRecord): PublicKey {
 
 /** The vendor side resolves a caller from the token the agent presents. */
 export async function agentByToken(token: string): Promise<AgentRecord | undefined> {
-  if (!token.startsWith('stp_')) return undefined;
+  if (!token.startsWith('stp_') || token.startsWith('stp_view_')) return undefined;
   return (await allAgents()).find((agent) => agent.token === token);
+}
+
+/** A view token opens exactly one dashboard and can do nothing else. */
+export async function agentByViewToken(token: string): Promise<AgentRecord | undefined> {
+  if (!token.startsWith('stp_view_')) return undefined;
+  return (await allAgents()).find((agent) => agent.viewToken === token);
+}
+
+/**
+ * Mutations carry the owner's key when they come from a keyed console link, so
+ * one operator's link can never edit another agent. A request without the header
+ * is the local operator on their own machine.
+ */
+export async function canMutate(request: Request, agentId: string): Promise<boolean> {
+  const token = request.headers.get('x-agent-token');
+  if (!token) return true;
+  const owner = await agentByToken(token);
+  return Boolean(owner && owner.id === agentId);
 }

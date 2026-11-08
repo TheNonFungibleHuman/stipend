@@ -218,9 +218,28 @@ POST /api/agents/<id>/authorize
 POST /api/paid/market-intel
   x-agent-token: stp_...
   x-payment: <header>`)}
-        {h('Sharing a dashboard')}
+        {h('Two keys per agent')}
         {p(
-          'The token doubles as a read-only console key: /app?token=stp_... opens exactly that agent’s dashboard, with spending, limit edits and every other agent hidden. Copy the link from the Agent panel.',
+          'Each agent carries two credentials, and they are not interchangeable:',
+        )}
+        {list([
+          <>
+            <strong>The owner key</strong> (<code>stp_…</code>) — presented by the agent to spend, and
+            it opens the owner console at <code>/app?token=…</code>. That console can edit limits,
+            fund the wallet and run jobs. Keep it private.
+          </>,
+          <>
+            <strong>The view key</strong> (<code>stp_view_…</code>) — <code>/app?view=…</code> opens
+            the same dashboard read-only. It cannot spend, change limits, reveal the owner key, or
+            see any other agent on the machine. This is the one you share.
+          </>,
+        ])}
+        {note(
+          <>
+            A keyed link shows only its own agent — there is no switcher, because a link must never
+            expose someone else&apos;s agents. Both links are generated per agent and appear in the
+            Agent panel.
+          </>,
         )}
       </>
     ),
@@ -267,7 +286,7 @@ POST /api/paid/market-intel
         {list([
           'Exploration: $0.10 a call, $1.00 a day — enough for ~20 purchases.',
           'Production-ish: $0.25 a call, $10 a day, with an allowlist of the vendors you have reviewed.',
-          'Never: a cap you would not be comfortable seeing hit every day, on its own.',
+          'There is no ceiling imposed by Stipend: type any amount you are willing to lose. The only hard limit is that the agent cannot spend more than it holds.',
         ])}
       </>
     ),

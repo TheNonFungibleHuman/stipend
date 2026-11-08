@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getAgent, setPolicy, toPublic } from '@/lib/agents';
+import { canMutate, getAgent, setPolicy, toPublic } from '@/lib/agents';
 import { invalidateSnapshot } from '@/lib/bootstrap';
 
 export const dynamic = 'force-dynamic';
 
 const schema = z.object({
-  perCallCap: z.number().int().min(1_000).max(1_000_000_000).optional(),
-  dailyCap: z.number().int().min(10_000).max(1_000_000_000).optional(),
+  perCallCap: z.number().int().min(1_000).max(1_000_000_000_000).optional(),
+  dailyCap: z.number().int().min(10_000).max(1_000_000_000_000).optional(),
   allowlist: z.array(z.string()).max(10).optional(),
 });
 
@@ -21,6 +21,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 /** Policy edits apply to the next purchase, never to one already signed. */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!(await canMutate(request, id))) {
+    return NextResponse.json({ error: 'that key does not belong to this agent' }, { status: 403 });
+  }
+
   const parsed = schema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: 'invalid policy' }, { status: 400 });
 

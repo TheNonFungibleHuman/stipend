@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { AmountInput } from './AmountInput';
 import type { PublicAgent } from '../types';
 import { shortAddress, usd } from '../types';
 
@@ -145,49 +146,22 @@ export function Onboard() {
             quote and the signature, so a refused purchase is a transaction that never existed.
           </p>
 
-          <div className="knob">
-            <div className="knob__row">
-              <label className="knob__label" htmlFor="onboard-per-call">
-                Per-call cap
-              </label>
-              <output className="knob__value">{usd(perCall)}</output>
-            </div>
-            <input
-              id="onboard-per-call"
-              type="range"
-              min={10_000}
-              max={1_000_000}
-              step={10_000}
-              value={perCall}
-              onChange={(event) => setPerCall(Number(event.target.value))}
-            />
-            <div className="knob__scale">
-              <span>$0.01</span>
-              <span>$1.00</span>
-            </div>
-          </div>
+          <AmountInput
+            id="onboard-per-call"
+            label="Per-call cap"
+            value={perCall}
+            onChange={setPerCall}
+            hint="One purchase may not exceed this."
+          />
 
-          <div className="knob">
-            <div className="knob__row">
-              <label className="knob__label" htmlFor="onboard-daily">
-                Daily budget
-              </label>
-              <output className="knob__value">{usd(daily)}</output>
-            </div>
-            <input
-              id="onboard-daily"
-              type="range"
-              min={100_000}
-              max={5_000_000}
-              step={100_000}
-              value={daily}
-              onChange={(event) => setDaily(Number(event.target.value))}
-            />
-            <div className="knob__scale">
-              <span>$0.10</span>
-              <span>$5.00</span>
-            </div>
-          </div>
+          <AmountInput
+            id="onboard-daily"
+            label="Daily budget"
+            value={daily}
+            onChange={setDaily}
+            quick={[1_000_000, 5_000_000, 20_000_000, 100_000_000]}
+            hint="Rolling 24 hours of spending."
+          />
 
           <fieldset className="allowlist">
             <legend className="field__label">

@@ -19,13 +19,16 @@ const DEFAULT_GOAL =
 export default function Console({
   initialAgentId,
   initialToken,
+  initialView,
   mcpPath,
 }: {
   initialAgentId?: string;
   initialToken?: string;
+  initialView?: string;
   mcpPath: string;
 }) {
-  const readOnly = Boolean(initialToken);
+  const [readOnly, setReadOnly] = useState(Boolean(initialView));
+  const keyed = Boolean(initialToken || initialView);
   const [data, setData] = useState<StateResponse | null>(null);
   const [run, setRun] = useState<Run | null>(null);
   const [goal, setGoal] = useState(DEFAULT_GOAL);
@@ -37,17 +40,23 @@ export default function Console({
   const activeId = useRef<string | undefined>(initialAgentId);
   activeId.current = agentId;
 
+  /** A keyed console link proves ownership on every mutation. */
+  const authHeaders = (extra: Record<string, string> = {}): Record<string, string> =>
+    initialToken ? { ...extra, 'x-agent-token': initialToken } : extra;
+
   const loadState = useCallback(async (refresh = false) => {
     try {
       const query = new URLSearchParams();
       if (refresh) query.set('refresh', '1');
-      if (readOnly) query.set('token', initialToken!);
+      if (initialView) query.set('view', initialView);
+      else if (initialToken) query.set('token', initialToken);
       else if (activeId.current) query.set('agent', activeId.current);
       const response = await fetch(`/api/state?${query.toString()}`, { cache: 'no-store' });
       const json = (await response.json()) as StateResponse;
       failures.current = 0;
       setConnError(null);
       setData(json);
+      if (typeof json.readOnly === 'boolean') setReadOnly(json.readOnly);
       if (json.activeAgentId && json.activeAgentId !== activeId.current) {
         activeId.current = json.activeAgentId;
         setAgentId(json.activeAgentId);
@@ -90,7 +99,7 @@ export default function Console({
     try {
       const response = await fetch('/api/run', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ goal, mode, agentId }),
       });
       const json = (await response.json()) as { run?: Run; error?: string };
@@ -108,7 +117,7 @@ export default function Console({
     try {
       await fetch(`/api/agents/${agentId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(patch),
       });
       await loadState(true);
@@ -121,7 +130,7 @@ export default function Console({
     if (!agentId) return;
     setActionError(null);
     try {
-      const response = await fetch(`/api/agents/${agentId}/fund`, { method: 'POST' });
+      const response = await fetch(`/api/agents/${agentId}/fund`, { method: 'POST', headers: authHeaders() });
       const json = (await response.json()) as { error?: string };
       if (json.error) throw new Error(json.error);
       await loadState(true);

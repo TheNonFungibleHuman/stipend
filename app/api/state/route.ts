@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { agentByToken, allAgents, toPublic } from '@/lib/agents';
+import { agentByToken, agentByViewToken, allAgents, toPublic } from '@/lib/agents';
 import { listRuns, mergeSummaries, spentToday, summariesFromLedger } from '@/lib/agent';
 import { bootstrap, FundingRequiredError, liveSnapshot } from '@/lib/bootstrap';
 import { HOSTILE_SERVICE, SERVICES } from '@/lib/config';
@@ -56,18 +56,26 @@ export async function GET(request: Request) {
   try {
     await bootstrap();
 
-    // A token in the URL is a read-only capability: it opens exactly one
-    // agent's console and nothing else. This is how a dashboard gets shared.
+    // Two different keys open a console:
+    //   ?token=  the owner's key — full control, and it can spend, so it is theirs alone.
+    //   ?view=   a read-only key — safe to share, opens one dashboard, can do nothing else.
     let requested = url.searchParams.get('agent');
     let readOnly = false;
+    let scoped = false;
+
+    const view = url.searchParams.get('view');
     const token = url.searchParams.get('token');
-    if (token) {
-      const owner = await agentByToken(token);
-      if (!owner) {
-        return NextResponse.json({ error: 'that link is not valid' }, { status: 401 });
-      }
-      requested = owner.id;
+    if (view) {
+      const viewer = await agentByViewToken(view);
+      if (!viewer) return NextResponse.json({ error: 'that shared link is not valid' }, { status: 401 });
+      requested = viewer.id;
       readOnly = true;
+      scoped = true;
+    } else if (token) {
+      const owner = await agentByToken(token);
+      if (!owner) return NextResponse.json({ error: 'that console link is not valid' }, { status: 401 });
+      requested = owner.id;
+      scoped = true;
     }
 
     const snapshot = await liveSnapshot(requested, refresh ? 0 : 1500);
@@ -90,9 +98,11 @@ export async function GET(request: Request) {
       llm: { configured: llmConfigured(), label: llmLabel() },
       runs: live,
       runSummaries: mergeSummaries(summariesFromLedger(ledger), live),
-      // A shared view must not leak the other agents on this machine.
-      agents: readOnly
-        ? []
+      // A keyed link sees only its own agent. The local console sees them all.
+      agents: scoped
+        ? readOnly
+          ? []
+          : [toPublic((await allAgents()).find((agent) => agent.id === snapshot.agent.id)!, snapshot.agent.tokensRaw)]
         : agents.map((agent) =>
             toPublic(agent, agent.id === snapshot.agent.id ? snapshot.agent.tokensRaw : undefined),
           ),

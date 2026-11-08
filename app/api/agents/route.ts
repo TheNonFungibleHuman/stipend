@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 
 const schema = z.object({
   name: z.string().min(1).max(40),
-  perCallCap: z.number().int().min(1_000).max(1_000_000_000).optional(),
-  dailyCap: z.number().int().min(10_000).max(1_000_000_000).optional(),
+  perCallCap: z.number().int().min(1_000).max(1_000_000_000_000).optional(),
+  dailyCap: z.number().int().min(10_000).max(1_000_000_000_000).optional(),
   allowlist: z.array(z.string()).max(10).optional(),
 });
 

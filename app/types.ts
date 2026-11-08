@@ -101,6 +101,7 @@ export interface PublicAgent {
   name: string;
   address: string;
   token: string;
+  viewToken: string;
   policy: Policy;
   createdAt: string;
   demo: boolean;
@@ -118,6 +119,7 @@ export interface StateResponse {
   ok: boolean;
   needsFunding?: boolean;
   fixture?: boolean;
+  readOnly?: boolean;
   treasuryAddress?: string;
   solBalance?: number;
   faucetUrl?: string;

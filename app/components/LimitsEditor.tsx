@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { AmountInput } from './AmountInput';
 import type { Policy } from '../types';
 import { usd } from '../types';
 
@@ -9,12 +10,6 @@ interface Props {
   onApply: (patch: { perCallCap?: number; dailyCap?: number }) => Promise<void>;
   disabled: boolean;
 }
-
-const PRESETS = [
-  { label: '$0.05', perCallCap: 50_000 },
-  { label: '$0.10', perCallCap: 100_000 },
-  { label: '$1.00', perCallCap: 1_000_000 },
-];
 
 export function LimitsEditor({ policy, onApply, disabled }: Props) {
   const [perCall, setPerCall] = useState(policy?.perCallCap ?? 100_000);
@@ -46,51 +41,24 @@ export function LimitsEditor({ policy, onApply, disabled }: Props) {
       </div>
 
       <div className="limits">
-        <div className="knob">
-          <div className="knob__row">
-            <label className="knob__label" htmlFor="per-call">
-              Per-call cap
-            </label>
-            <output className="knob__value">{usd(perCall)}</output>
-          </div>
-          <input
-            id="per-call"
-            type="range"
-            min={10_000}
-            max={1_000_000}
-            step={10_000}
-            value={perCall}
-            disabled={disabled || saving}
-            onChange={(event) => setPerCall(Number(event.target.value))}
-          />
-          <div className="knob__scale">
-            <span>$0.01</span>
-            <span>$1.00</span>
-          </div>
-        </div>
+        <AmountInput
+          id="per-call"
+          label="Per-call cap"
+          value={perCall}
+          onChange={setPerCall}
+          disabled={disabled || saving}
+          hint="A single purchase above this is refused before signing."
+        />
 
-        <div className="knob">
-          <div className="knob__row">
-            <label className="knob__label" htmlFor="daily">
-              Daily budget
-            </label>
-            <output className="knob__value">{usd(daily)}</output>
-          </div>
-          <input
-            id="daily"
-            type="range"
-            min={100_000}
-            max={5_000_000}
-            step={100_000}
-            value={daily}
-            disabled={disabled || saving}
-            onChange={(event) => setDaily(Number(event.target.value))}
-          />
-          <div className="knob__scale">
-            <span>$0.10</span>
-            <span>$5.00</span>
-          </div>
-        </div>
+        <AmountInput
+          id="daily"
+          label="Daily budget"
+          value={daily}
+          onChange={setDaily}
+          quick={[1_000_000, 5_000_000, 20_000_000, 100_000_000]}
+          disabled={disabled || saving}
+          hint="Rolling 24 hours. When it is used up, the agent stops being able to buy."
+        />
 
         <div className="limits__actions">
           <button
@@ -98,21 +66,11 @@ export function LimitsEditor({ policy, onApply, disabled }: Props) {
             disabled={!dirty || disabled || saving}
             onClick={() => void commit({ perCallCap: perCall, dailyCap: daily })}
           >
-            {saving ? 'Saving' : 'Apply'}
+            {saving ? 'Saving' : 'Apply limits'}
           </button>
-          {PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              className={`switch${preset.perCallCap === perCall ? ' switch--armed' : ''}`}
-              disabled={disabled || saving}
-              onClick={() => {
-                setPerCall(preset.perCallCap);
-                void commit({ perCallCap: preset.perCallCap, dailyCap: daily });
-              }}
-            >
-              {preset.label}
-            </button>
-          ))}
+          <span className="limits__summary mono">
+            {usd(perCall)} a call · {usd(daily)} a day
+          </span>
         </div>
       </div>
     </section>

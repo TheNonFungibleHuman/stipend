@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { listRuns, startRun } from '@/lib/agent';
+import { canMutate } from '@/lib/agents';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,10 @@ export async function POST(request: Request) {
   if (process.env.STIPEND_FIXTURE === '1') {
     const { fixtureRun } = await import('@/lib/fixture');
     return NextResponse.json({ run: fixtureRun(parsed.data.mode ?? 'normal') });
+  }
+
+  if (parsed.data.agentId && !(await canMutate(request, parsed.data.agentId))) {
+    return NextResponse.json({ error: 'that key does not belong to this agent' }, { status: 403 });
   }
 
   const origin = new URL(request.url).origin;
