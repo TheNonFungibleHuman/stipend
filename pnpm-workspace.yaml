@@ -1,0 +1,10 @@
+packages:
+  - '.'
+
+# pnpm 11 reads per-package build permission here. These four are native or
+# binary postinstalls required by the Solana JS SDK and the TS runner.
+allowBuilds:
+  bigint-buffer: true
+  bufferutil: true
+  esbuild: true
+  utf-8-validate: true
