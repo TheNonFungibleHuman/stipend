@@ -251,7 +251,7 @@ export function Onboard() {
             </button>
             <button
               className="key key--go"
-              onClick={() => router.push(`/app?agent=${agent.id}`)}
+              onClick={() => router.push(`/app?token=${agent.token}`)}
             >
               Open the console →
             </button>

@@ -17,6 +17,8 @@ export interface PolicyInput {
   spentToday: number;
   /** Tokens the agent currently holds, in base units. */
   agentBalance: number;
+  /** The wallet that would receive the money, when the quote carries one. */
+  payee?: string;
 }
 
 function dollars(baseUnits: number): string {
@@ -24,9 +26,18 @@ function dollars(baseUnits: number): string {
 }
 
 export function evaluate(input: PolicyInput): PolicyDecision {
-  const { policy, serviceId, price, spentToday, agentBalance } = input;
+  const { policy, serviceId, price, spentToday, agentBalance, payee } = input;
 
-  if (policy.allowlist.length > 0 && !policy.allowlist.includes(serviceId)) {
+  // The allowlist holds payees, not product names: either a vendor id from this
+  // catalogue or a wallet address. An empty list means "no restriction", which
+  // is the default for a fresh agent.
+  const allowlist = policy.allowlist ?? [];
+  const allowed =
+    allowlist.length === 0 ||
+    allowlist.includes(serviceId) ||
+    (Boolean(payee) && allowlist.includes(payee as string));
+
+  if (!allowed) {
     return {
       allowed: false,
       code: 'not-allowed',

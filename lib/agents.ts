@@ -199,9 +199,17 @@ export async function agentByViewToken(token: string): Promise<AgentRecord | und
  * one operator's link can never edit another agent. A request without the header
  * is the local operator on their own machine.
  */
+/**
+ * Only the owner key may change an agent. The demo agent is the exception: it is
+ * a public sandbox, so anyone may run it or top it up. A personal agent is not
+ * public — its id appears in share links, so an id alone must never be enough.
+ */
 export async function canMutate(request: Request, agentId: string): Promise<boolean> {
   const token = request.headers.get('x-agent-token');
-  if (!token) return true;
-  const owner = await agentByToken(token);
-  return Boolean(owner && owner.id === agentId);
+  if (token) {
+    const owner = await agentByToken(token);
+    return Boolean(owner && owner.id === agentId);
+  }
+  const target = await getAgent(agentId);
+  return target?.demo === true;
 }

@@ -79,10 +79,15 @@ export async function GET(request: Request) {
     }
 
     const snapshot = await liveSnapshot(requested, refresh ? 0 : 1500);
-    const ledger = (await getLedger()).filter(
-      (entry) => entry.agentId === snapshot.agent.id || entry.agentId === undefined,
-    );
     const agents = await allAgents();
+    const demoId = agents.find((agent) => agent.demo)?.id;
+    // Someone else's purchases are not this agent's history. Records written
+    // before agents were tracked belong to the demo agent and nobody else.
+    const ledger = (await getLedger()).filter(
+      (entry) =>
+        entry.agentId === snapshot.agent.id ||
+        (entry.agentId === undefined && snapshot.agent.id === demoId),
+    );
     const live = await listRuns(snapshot.agent.id);
 
     return NextResponse.json({

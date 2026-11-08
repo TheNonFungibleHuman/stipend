@@ -153,6 +153,7 @@ export async function paidCall(input: PaidCallInput): Promise<PaidCallResult> {
     price: quote.price,
     spentToday: input.spentToday,
     agentBalance: input.agentBalance,
+    payee: quote.payee,
   });
   if (!decision.allowed) {
     return { status: 'refused', quote, code: decision.code, reason: decision.message };

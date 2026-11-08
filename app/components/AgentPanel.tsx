@@ -11,6 +11,7 @@ interface Props {
   readOnly?: boolean;
   onFund?: () => void;
   funding?: boolean;
+  onAllowlist?: (allowlist: string[]) => void;
 }
 
 function CopyButton({ value, label }: { value: string; label: string }) {
@@ -34,8 +35,9 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 }
 
 /** Identity, funding, and the three ways to hand this agent to a real runtime. */
-export function AgentPanel({ agent, snapshot, baseUrl, readOnly, onFund, funding }: Props) {
+export function AgentPanel({ agent, snapshot, baseUrl, readOnly, onFund, funding, onAllowlist }: Props) {
   const [revealed, setRevealed] = useState(false);
+  const [payee, setPayee] = useState('');
   const [tab, setTab] = useState<'prompt' | 'config' | 'http'>('prompt');
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
   const ownerUrl = `${origin}/app?token=${agent.token}`;
@@ -138,8 +140,56 @@ const { output, receipt } = await paid.json();`;
           </dd>
         </div>
         <div>
-          <dt>Allowlist</dt>
-          <dd>{agent.policy.allowlist.length > 0 ? agent.policy.allowlist.join(', ') : 'any vendor'}</dd>
+          <dt>Payees</dt>
+          <dd>
+            <div className="payees">
+              {agent.policy.allowlist.length === 0 && (
+                <span className="payees__empty">any vendor can be paid</span>
+              )}
+              {agent.policy.allowlist.map((entry) => (
+                <span className="payee" key={entry}>
+                  <span className="mono">{entry}</span>
+                  {!readOnly && (
+                    <button
+                      className="payee__x"
+                      aria-label={`Remove ${entry}`}
+                      onClick={() =>
+                        onAllowlist?.(agent.policy.allowlist.filter((item) => item !== entry))
+                      }
+                    >
+                      ×
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+            {!readOnly && (
+              <form
+                className="payees__form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const value = payee.trim();
+                  if (!value || agent.policy.allowlist.includes(value)) return;
+                  onAllowlist?.([...agent.policy.allowlist, value]);
+                  setPayee('');
+                }}
+              >
+                <input
+                  className="field__input field__input--tight"
+                  value={payee}
+                  placeholder="vendor id or wallet address"
+                  onChange={(event) => setPayee(event.target.value)}
+                  spellCheck={false}
+                />
+                <button className="key key--quiet" type="submit" disabled={!payee.trim()}>
+                  Add
+                </button>
+              </form>
+            )}
+            <span className="payees__hint">
+              Your agent can only pay these. Leave it empty to allow any vendor.
+            </span>
+          </dd>
         </div>
         <div>
           <dt>Mint</dt>

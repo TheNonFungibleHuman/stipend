@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AgentPanel } from './AgentPanel';
+import { StartPanel } from './StartPanel';
 import { FundingGate } from './FundingGate';
 import { LedgerTable } from './LedgerTable';
 import { LimitsEditor } from './LimitsEditor';
@@ -166,6 +167,20 @@ export default function Console({
     }
   };
 
+  const applyAllowlist = async (allowlist: string[]) => {
+    if (!agentId) return;
+    try {
+      await fetch(`/api/agents/${agentId}`, {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ allowlist }),
+      });
+      await loadState(true);
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : 'could not save the payee list');
+    }
+  };
+
   const applyPolicy = async (patch: { perCallCap?: number; dailyCap?: number }) => {
     if (!agentId) return;
     try {
@@ -242,6 +257,9 @@ export default function Console({
     agents.find((agent) => agent.id === (agentId ?? data.activeAgentId)) ??
     agents.find((agent) => agent.id === snapshot?.agent.id);
   const running = run?.status === 'running';
+  // The pipeline belongs to the demo agent. A personal agent is driven from its
+  // owner's own agent, so this page shows setup instead of a run button.
+  const isDemo = active?.demo === true;
   const refusedCount = ledger.filter((entry) => entry.decision === 'refused').length;
   const baseUrl =
     typeof window === 'undefined'
@@ -295,6 +313,17 @@ export default function Console({
 
       <div className="deck deck--dash">
         <div className="dash-main">
+          {!isDemo && active && (
+            <StartPanel
+              agent={active}
+              baseUrl={baseUrl}
+              balanceRaw={snapshot?.agent.tokensRaw ?? 0}
+              onFund={() => void fundAgent()}
+              funding={busy !== null}
+            />
+          )}
+
+          {isDemo && (
           <section className="card">
             <div className="card__head">
               <h2 className="card__title">Job</h2>
@@ -335,15 +364,17 @@ export default function Console({
 
             <RunSteps run={run} />
           </section>
+          )}
 
-          <RunsTable runs={data.runSummaries ?? []} />
-          {active && (
+          {isDemo && <RunsTable runs={data.runSummaries ?? []} />}
+          {isDemo && active && (
             <AgentPanel
               agent={active}
               snapshot={snapshot}
               baseUrl={baseUrl}
               readOnly={readOnly}
               onFund={() => void fundAgent()}
+              onAllowlist={(list) => void applyAllowlist(list)}
               funding={busy !== null}
             />
           )}

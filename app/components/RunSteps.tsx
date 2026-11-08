@@ -31,56 +31,67 @@ const STAMP: Record<RunStep['status'], { label: string; className: string }> = {
   settling: { label: 'Signing', className: 'stamp--live' },
   settled: { label: 'Paid', className: 'stamp--settled' },
   denied: { label: 'Refused', className: 'stamp--denied' },
-  error: { label: 'Error', className: 'stamp--error' },
+  error: { label: 'Failed', className: 'stamp--error' },
 };
 
 const isWorking = (step: RunStep) => step.status === 'quoting' || step.status === 'settling';
+const isDone = (step: RunStep) => !isWorking(step);
 
-/** Steps of the run in view, with a live clock so a wait looks like work. */
-export function RunSteps({ run }: { run: Run | null }) {
+/** Its own component so the clock ticks without re-rendering finished rows. */
+function Clock({ since }: { since: string }) {
   const [now, setNow] = useState(() => Date.now());
-  const working = run?.status === 'running' || Boolean(run?.steps.some(isWorking));
-
   useEffect(() => {
-    if (!working) return;
-    const timer = setInterval(() => setNow(Date.now()), 250);
+    const timer = setInterval(() => setNow(Date.now()), 200);
     return () => clearInterval(timer);
-  }, [working]);
+  }, []);
+  return <span className="runprogress__clock mono">{((now - Date.parse(since)) / 1000).toFixed(1)}s</span>;
+}
 
+/**
+ * Steps appear when they finish, in order, and the progress line shrinks as they
+ * land. Rendering every queued step at once made the list jump around while the
+ * run was working; a person watching should see results arrive, not boxes flicker.
+ */
+export function RunSteps({ run }: { run: Run | null }) {
   if (!run) {
-    return <p className="empty-row">No active run.</p>;
+    return <p className="empty-row">No run yet.</p>;
   }
 
-  const settled = run.steps.filter((step) => step.status === 'settled').length;
-  const elapsed = ((run.endedAt ? Date.parse(run.endedAt) : now) - Date.parse(run.startedAt)) / 1000;
+  const steps = run.steps ?? [];
+  const done = steps.filter(isDone);
+  const working = steps.filter(isWorking);
+  const total = run.mode === 'rogue' ? 2 : 3;
+  const current = working[0];
 
   return (
     <>
-      {working && (
+      {current && (
         <div className="runprogress" role="status" aria-live="polite">
           <span className="runprogress__pulse" aria-hidden="true" />
           <span className="runprogress__label">
-            working · {settled} of {run.steps.length || 3} settled
+            {current.status === 'quoting'
+              ? `asking ${current.serviceName} for a price`
+              : `${current.serviceName}: paying, then checking the chain`}
           </span>
-          <span className="runprogress__clock mono">{elapsed.toFixed(1)}s</span>
+          <Clock since={current.startedAt} />
           <span className="runprogress__rail" aria-hidden="true">
             <span className="runprogress__shimmer" />
           </span>
         </div>
       )}
 
+      {done.length === 0 && !current && <p className="empty-row">No run yet.</p>}
+
       <ol className="jobs">
-        {run.steps.map((step) => {
+        {done.map((step) => {
           const stamp = STAMP[step.status];
-          const stepElapsed =
-            (step.endedAt ? Date.parse(step.endedAt) : now) - Date.parse(step.startedAt);
           return (
             <li key={step.index} className={`job job--${step.status}`}>
               <div className="job__head">
                 <span className={`job__dot job__dot--${step.status}`} aria-hidden="true" />
                 <span className="job__id">{String(step.index + 1).padStart(2, '0')}</span>
                 <span className="job__name">{step.serviceName}</span>
-                <span className="job__price">{usd(step.price)}</span>
+                <span className="job__price">{usd(step.status === 'denied' ? step.price : step.price)}</span>
                 <span className={`stamp ${stamp.className}`}>
                   {stamp.label}
                   {step.settleMs !== undefined && step.status === 'settled' && (
@@ -92,21 +103,9 @@ export function RunSteps({ run }: { run: Run | null }) {
               <div className="job__body">
                 {step.status === 'denied' && (
                   <p className="job__denied">
-                    <strong>402 quoted {usd(step.price)}.</strong> {step.reason}. No signature
-                    produced.
+                    <strong>The vendor wanted {usd(step.price)}.</strong> {step.reason}. Nothing was
+                    signed, so nothing was paid.
                   </p>
-                )}
-
-                {isWorking(step) && (
-                  <div className="job__pending">
-                    <span className="spin" aria-hidden="true" />
-                    <span>
-                      {step.status === 'quoting'
-                        ? 'asking the vendor for a price'
-                        : 'paying, then the vendor checks the chain'}
-                    </span>
-                    <span className="job__elapsed mono">{(stepElapsed / 1000).toFixed(1)}s</span>
-                  </div>
                 )}
 
                 {step.status === 'error' && <p className="job__denied">{step.reason}</p>}
@@ -114,13 +113,11 @@ export function RunSteps({ run }: { run: Run | null }) {
                 {step.status === 'settled' && (
                   <>
                     <div className="job__flow">
-                      <span className="leg leg--402">402</span>
+                      <span className="leg leg--402">priced</span>
                       <span className="leg leg--arrow">→</span>
-                      <span className="leg">policy ok</span>
+                      <span className="leg">within policy</span>
                       <span className="leg leg--arrow">→</span>
-                      <span className="leg leg--ok">confirmed</span>
-                      <span className="leg leg--arrow">→</span>
-                      <span className="leg">200</span>
+                      <span className="leg leg--ok">paid</span>
                       {step.signature && (
                         <a
                           className="job__link"
@@ -128,7 +125,7 @@ export function RunSteps({ run }: { run: Run | null }) {
                           target="_blank"
                           rel="noreferrer"
                         >
-                          {shortAddress(step.signature, 5)} ↗
+                          receipt {shortAddress(step.signature, 5)} ↗
                         </a>
                       )}
                     </div>
@@ -139,13 +136,12 @@ export function RunSteps({ run }: { run: Run | null }) {
                     </ul>
                     <p className="job__meta">
                       {step.engine === 'model'
-                        ? `computed by ${step.model}`
+                        ? `written by ${step.model}`
                         : step.engine === 'fetch'
-                          ? 'fetched from the live source'
-                          : 'computed deterministically'}
-                      {step.computeMs !== undefined &&
-                        ` in ${Math.round(step.computeMs / 100) / 10}s`}
-                      {step.source === 'cached' && ' · cached snapshot'}
+                          ? 'read from the live source'
+                          : 'written from a fixed template'}
+                      {step.computeMs !== undefined && ` in ${Math.round(step.computeMs / 100) / 10}s`}
+                      {step.source === 'cached' && ' · saved copy, source was unreachable'}
                     </p>
                   </>
                 )}
@@ -154,6 +150,14 @@ export function RunSteps({ run }: { run: Run | null }) {
           );
         })}
       </ol>
+
+      {run.status === 'complete' && done.length > 0 && (
+        <p className="runprogress__foot">
+          {done.filter((step) => step.status === 'settled').length} of {total} bought ·{' '}
+          {usd(run.spend)}
+          {run.refused > 0 && ` · ${run.refused} refused`}
+        </p>
+      )}
     </>
   );
 }
