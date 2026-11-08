@@ -21,48 +21,49 @@ type Outcome = null | { ok: boolean; ms: number; reason?: string };
  */
 export function HeroDial() {
   const [index, setIndex] = useState(0);
-  const [angle, setAngle] = useState(0);
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [busy, setBusy] = useState(false);
-  const dragging = useRef<{ startX: number; startAngle: number } | null>(null);
+  const drag = useRef<{ x: number } | null>(null);
   const dialRef = useRef<HTMLDivElement | null>(null);
 
   const price = PRICES[index];
 
-  const turn = useCallback((delta: number) => {
-    setAngle((current) => current + delta);
-    setIndex((current) => {
-      const next = delta > 0 ? (current + 1) % PRICES.length : (current - 1 + PRICES.length) % PRICES.length;
-      return next;
-    });
+  /**
+   * The dial snaps one notch per 70px of travel and the price never rotates with
+   * it: the readout sits outside the spinning face. Dragging used to accumulate
+   * a free-floating angle, so the number appeared to jitter between values.
+   */
+  const step = useCallback((direction: number) => {
+    setIndex((current) => (current + direction + PRICES.length) % PRICES.length);
     setOutcome(null);
   }, []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'ArrowRight') turn(1);
-      if (event.key === 'ArrowLeft') turn(-1);
+      if (event.key === 'ArrowRight') step(1);
+      if (event.key === 'ArrowLeft') step(-1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [turn]);
+  }, [step]);
 
   const onPointerDown = (event: React.PointerEvent) => {
-    dragging.current = { startX: event.clientX, startAngle: angle };
+    // Without this the browser starts a text selection and the drag fights it.
+    event.preventDefault();
+    drag.current = { x: event.clientX };
     dialRef.current?.setPointerCapture(event.pointerId);
   };
 
   const onPointerMove = (event: React.PointerEvent) => {
-    if (!dragging.current) return;
-    const delta = event.clientX - dragging.current.startX;
-    if (Math.abs(delta) > 42) {
-      turn(delta > 0 ? 1 : -1);
-      dragging.current = { startX: event.clientX, startAngle: dragging.current.startAngle + delta };
-    }
+    if (!drag.current) return;
+    const travel = event.clientX - drag.current.x;
+    if (Math.abs(travel) < 48) return;
+    step(travel > 0 ? 1 : -1);
+    drag.current = { x: event.clientX };
   };
 
   const onPointerUp = () => {
-    dragging.current = null;
+    drag.current = null;
   };
 
   const pay = () => {
@@ -86,27 +87,34 @@ export function HeroDial() {
         <span className="dialcard__cap">cap $1.00 / call</span>
       </div>
 
-      <div
-        className={`dial${outcome ? (outcome.ok ? ' dial--paid' : ' dial--refused') : ''}`}
-        ref={dialRef}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        role="slider"
-        tabIndex={0}
-        aria-label="Pick a price by turning the dial"
-        aria-valuenow={price.cents / 1_000_000}
-        aria-valuetext={price.label}
-        style={{ transform: `rotate(${angle * 0.35}deg)` }}
-      >
-        <span className="dial__face" aria-hidden="true" />
-        <span className="dial__notch dial__notch--a" aria-hidden="true" />
-        <span className="dial__notch dial__notch--b" aria-hidden="true" />
-        <span className="dial__notch dial__notch--c" aria-hidden="true" />
-        <span className="dial__pointer" aria-hidden="true" />
-        <span className="dial__readout">
-          <span className="dial__price">{price.label}</span>
+      <div className="dialwrap">
+        <div
+          className={`dial${outcome ? (outcome.ok ? ' dial--paid' : ' dial--refused') : ''}`}
+          ref={dialRef}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          role="slider"
+          tabIndex={0}
+          aria-label="Pick a price by turning the dial"
+          aria-valuemin={0}
+          aria-valuemax={PRICES.length - 1}
+          aria-valuenow={index}
+          aria-valuetext={price.label}
+          style={{ transform: `rotate(${index * 120}deg)` }}
+        >
+          <span className="dial__face" aria-hidden="true" />
+          <span className="dial__notch dial__notch--a" aria-hidden="true" />
+          <span className="dial__notch dial__notch--b" aria-hidden="true" />
+          <span className="dial__notch dial__notch--c" aria-hidden="true" />
+          <span className="dial__pointer" aria-hidden="true" />
+        </div>
+
+        <span className="dial__readout" aria-hidden="true">
+          <span className="dial__price" key={price.label}>
+            {price.label}
+          </span>
           <span className="dial__name">{price.name}</span>
         </span>
       </div>
