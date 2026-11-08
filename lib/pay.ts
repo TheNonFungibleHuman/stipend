@@ -132,6 +132,18 @@ export async function settle(input: {
 export async function paidCall(input: PaidCallInput): Promise<PaidCallResult> {
   const { response, quote } = await requestQuote(input);
   if (!quote) {
+    // The vendor screens scope before it quotes a price. That is a refusal the
+    // caller should see as a refusal — nothing was signed, nothing moved — not
+    // an error that reads like the payment rail broke.
+    if (response.status === 400 || response.status === 422) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string; reason?: string; code?: string };
+      return {
+        status: 'refused',
+        code: body.code ?? 'off-topic',
+        reason: body.reason ?? body.error ?? 'the vendor refused this request',
+        quote: { serviceId: input.serviceId, price: 0 } as Quote,
+      };
+    }
     return { status: 'error', reason: `expected a 402 from ${input.serviceId}, got ${response.status}` };
   }
 

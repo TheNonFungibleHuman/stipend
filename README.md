@@ -95,7 +95,7 @@ transaction fee so the agent only ever holds stablecoin.
 | `pnpm build` | production build |
 | `pnpm smoke` | one real transfer + memo on devnet, outside the UI |
 | `node tools/mcp-smoke.mjs` | spawns the MCP server and makes two real purchases |
-| `node tools/guard-check.mts` | unit checks for the off-topic guardrails |
+| `node tools/gate-check.mts` | what the vendors accept, and what they refuse |
 
 ---
 
@@ -150,12 +150,13 @@ The model key is server-only and worth protecting, so there are four layers:
 | Layer | Behaviour |
 | --- | --- |
 | **Not in the browser** | Read only inside route handlers. No `NEXT_PUBLIC_` prefix; the production build is grepped for it and contains it in zero client bundles |
-| **Scope gate** | Off-topic requests are rejected *before* the model is reached — tested against poems, jokes, translation, trivia, coding help, role-play and general-assistant prompts |
+| **Paid by default** | Every model-backed call is a purchase. Abuse is not free, so the caps are the protection: $1.00 per call and $5.00 per day on the demo agent, enforced before the signature |
 | **Rate limits** | 60 model calls/hour per caller, 240 vendor calls/hour, counted in Redis so the budget is shared across serverless instances |
 | **Per-run cap** | At most 3 model calls in a run, so a loop cannot drain the key |
 
-The vendor prompts carry a second rule (*reply `REFUSE` if the request is not market/pricing/product
-research*) for anything that slips past the deterministic screen.
+There is deliberately **no topic screen**. An earlier version refused anything that was not market
+research; it produced false refusals for reasonable questions while adding nothing to cost control,
+because the caller already pays for every call. The guard that matters is economic, not semantic.
 
 ## Architecture
 
@@ -173,7 +174,7 @@ lib/
   policy.ts                    pure decision function (allowlist, per-call cap, daily budget, balance)
   pay.ts                       quote → policy → sign → retry with proof
   verify.ts                    reads the chain, checks the payee's balance actually grew
-  guard.ts                     scope gate + rate limits
+  guard.ts                     rate limits and per-caller identity
   persist.ts                   storage seam: Upstash Redis when configured, files otherwise
   vendors/signals.ts           live signal fetch with a labelled cached fallback
   agents.ts                    agent records: keypair, two tokens, policy

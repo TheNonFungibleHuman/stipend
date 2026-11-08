@@ -1,5 +1,5 @@
 import { complete, llmConfigured, llmLastError } from './llm';
-import { VENDOR_SYSTEM_RULE, refusedByModel } from './guard';
+import { refusedByModel } from './guard';
 import { fetchSignals, type Signal } from './vendors/signals';
 
 /**
@@ -20,6 +20,14 @@ export interface ServiceResult {
   note?: string;
   computeMs: number;
 }
+
+/**
+ * The vendors used to instruct the model to reply REFUSE for anything that was
+ * not market research. That turned every reasonable off-beat question into a
+ * paid refusal, so the instruction now asks for a direct answer instead.
+ */
+const RESEARCH_VOICE =
+  'Answer the question directly and concisely. Use only what the supplied evidence supports.';
 
 function signalsFrom(value: unknown): Signal[] | null {
   const candidate = value as { signals?: unknown } | null | undefined;
@@ -42,7 +50,9 @@ function notesFrom(value: unknown): string[] {
 /** A fallback is a fact about the run, so it gets said out loud. */
 function fallbackNote(sourceNote: string): string {
   const reason = llmLastError();
-  return reason ? `${sourceNote} - model call failed: ${reason}` : `${sourceNote} - no model key`;
+  // The reason is the whole story: a missing key, a dropped call, or the vendor
+  // declining the request. "no model key" used to be printed for all three.
+  return reason ? `${sourceNote} - ${reason}` : `${sourceNote} - no model key`;
 }
 
 const bulletise = (text: string): string[] =>
@@ -108,7 +118,7 @@ export async function runService(
     if (llmConfigured()) {
       const result = await complete({
         system:
-          VENDOR_SYSTEM_RULE + ' ' +
+          RESEARCH_VOICE + ' ' +
           'You are a research analyst. From these threads, return 3 short bullets. ' +
           'decision-grade insight for a founder. No preamble, no headings, no markdown bold. ' +
           'Each bullet under 22 words. Reference the strongest evidence by name.',
@@ -142,7 +152,7 @@ export async function runService(
     if (llmConfigured()) {
       const result = await complete({
         system:
-          VENDOR_SYSTEM_RULE + ' ' +
+          RESEARCH_VOICE + ' ' +
           'Write a 100-word operator memo in plain prose: recommendation, reasoning, risk. No ' +
           'preamble. Open with the recommendation, then the reasoning, then the risk.',
         user:

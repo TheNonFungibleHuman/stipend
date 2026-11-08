@@ -182,7 +182,14 @@ export async function complete(args: {
         lastError = 'model returned an empty response';
         return null;
       }
-      lastError = null;
+      // The vendor rule tells the model to answer REFUSE when a request is out
+      // of scope. Record that as the reason so the caller is told "declined",
+      // not "no key" — those are different problems with different fixes.
+      if (/^REFUSE\.?$/i.test(trimmed)) {
+        lastError = 'the vendor declined this request as out of scope';
+      } else {
+        lastError = null;
+      }
       return {
         text: trimmed,
         provider: config.name,
