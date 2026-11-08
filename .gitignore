@@ -12,3 +12,7 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# rendered media
+.video/
+stipend-demo.mp4
