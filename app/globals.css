@@ -2472,6 +2472,121 @@ a.key {
   color: var(--silk-faint);
 }
 
+/* ---------------- scenario: what an agent actually buys ---------------- */
+
+.scenario {
+  margin: 0 0 40px;
+  padding-top: 26px;
+  border-top: 1px solid var(--line-strong);
+}
+
+.scenario__head {
+  display: grid;
+  grid-template-columns: minmax(0, 0.4fr) minmax(0, 0.6fr);
+  gap: 28px;
+  align-items: baseline;
+  margin-bottom: 18px;
+}
+
+.scenario__title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--silk);
+}
+
+.scenario__lede {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--silk-dim);
+  max-width: 74ch;
+}
+
+.scenario__list {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  border: var(--hair);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.scenario__row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 104px;
+  gap: 16px;
+  align-items: baseline;
+  padding: 13px 16px;
+  background: rgba(9, 31, 27, 0.62);
+  border-bottom: 1px solid rgba(223, 231, 226, 0.1);
+}
+
+.scenario__row:last-child {
+  border-bottom: none;
+  background: rgba(29, 80, 71, 0.32);
+}
+
+.scenario__n {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--lamp-warn);
+}
+
+.scenario__body {
+  display: grid;
+  gap: 3px;
+}
+
+.scenario__what {
+  font-size: 13.5px;
+  color: var(--silk);
+  line-height: 1.45;
+}
+
+.scenario__price {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--lamp-ok);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.scenario__price--yours {
+  color: var(--silk-faint);
+  font-size: 10.5px;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.scenario__normally {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--silk-faint);
+}
+
+.scenario__notes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.scenario__note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--silk-dim);
+}
+
+.scenario__note strong {
+  color: var(--silk);
+  font-weight: 600;
+}
+
 /* ---------------- responsive ---------------- */
 
 @media (max-width: 1060px) {

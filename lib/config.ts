@@ -42,8 +42,8 @@ export interface ServiceDef {
 export const SERVICES: ServiceDef[] = [
   {
     id: 'market-intel',
-    name: 'Market Intel',
-    blurb: 'Live competitor pricing and positioning for a category.',
+    name: 'Signal Search',
+    blurb: 'Live public discussion for the goal, fetched from the source at call time.',
     price: 40_000, // $0.04
   },
   {

@@ -3,6 +3,7 @@ import { Faq } from './components/Faq';
 import { HowItWorks } from './components/HowItWorks';
 import { Proof } from './components/Proof';
 import { Reveal } from './components/Reveal';
+import { Scenario } from './components/Scenario';
 
 export const metadata = {
   title: 'Stipend — give your agent a budget, not your keys',
@@ -145,11 +146,16 @@ POST /api/agents/<id>/authorize
         </div>
         <div className="problem__cell">
           <span className="problem__k">What changes</span>
-          <span className="problem__v">Per-call pricing</span>
+          <span className="problem__v">Per-call buying</span>
           <span className="problem__note">
-            an agent can buy one answer for four cents instead of a $59 monthly seat
+            an agent can pay two cents for one answer, from a vendor that would otherwise want a
+            plan and a card on file
           </span>
         </div>
+      </Reveal>
+
+      <Reveal delay={40}>
+        <Scenario />
       </Reveal>
 
       <Reveal delay={60}>

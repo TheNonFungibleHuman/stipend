@@ -5,6 +5,41 @@ import { Reveal } from './Reveal';
 
 const ITEMS: Array<{ q: string; a: React.ReactNode }> = [
   {
+    q: 'Is this a router that finds the cheapest vendor?',
+    a: (
+      <>
+        No. Nothing here picks a vendor for you — your agent, or your own code, decides what to buy.
+        Stipend does the two things that decision cannot do for itself: it pays a vendor that has no
+        account for you, and it refuses anything outside your caps before a signature exists. A
+        router optimises price across models you already have access to; this is the layer that
+        gives an agent access at all.
+      </>
+    ),
+  },
+  {
+    q: 'DeepSeek already bills me per call. What does this add?',
+    a: (
+      <>
+        Different layer, and your model invoice is untouched. Your provider already bills per token
+        and already lets you set a usage limit, so there is nothing to fix there. Stipend is for
+        everything else the agent needs: the search API, the headless browser, the OCR pass, the
+        dataset vendor. Each of those normally wants an account, a card on file and a monthly plan,
+        and none of them will sell you one page for three cents. That gap is the product.
+      </>
+    ),
+  },
+  {
+    q: 'When would I not need Stipend?',
+    a: (
+      <>
+        If your agent only ever calls one vendor, that vendor already bills per call, and you are
+        happy with its own spend limit — you do not need this, and you should keep what you have.
+        Stipend earns its place when the vendor count goes up, when a vendor will not sell you a
+        single call, or when you want one budget and one audit trail across all of them.
+      </>
+    ),
+  },
+  {
     q: 'How does my agent actually use the API token?',
     a: (
       <>
