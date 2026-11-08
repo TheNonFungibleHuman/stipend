@@ -228,7 +228,9 @@ const { output, receipt } = await paid.json();`;
         </div>
       )}
 
-      {!readOnly && (
+      {/* The setup steps already carry the prompt for a personal agent, so this
+          block only appears on the demo, where it is the only place to see it. */}
+      {!readOnly && agent.demo && (
       <div className="agentpanel__wire">
         <div className="agentpanel__tabs" role="tablist" aria-label="How to connect your agent">
           <button
