@@ -2,6 +2,7 @@
   "name": "stipend",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Budget-enforced Solana wallets for AI agents that pay per API call.",
   "scripts": {
     "dev": "next dev -p 4310",

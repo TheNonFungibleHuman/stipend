@@ -2,6 +2,10 @@
 
 **Tagline:** A budget for your AI agent, enforced before it signs anything.
 
+**Live:** https://stipend-delta.vercel.app
+**Repo:** https://github.com/TheNonFungibleHuman/stipend
+**Docs:** https://stipend-delta.vercel.app/docs · demo script: [DEMO.md](DEMO.md)
+
 ## What it is
 
 Stipend gives an AI agent its own Solana wallet and a spending policy that is checked between the
