@@ -16,7 +16,7 @@ export interface ServiceResult {
   output: unknown;
   engine: Engine;
   model?: string;
-  source?: 'live' | 'cached';
+  source?: 'live' | 'none';
   note?: string;
   computeMs: number;
 }
@@ -107,12 +107,28 @@ export async function runService(
   }
 
   const allSignals = signalsFrom(context.intel) ?? (await fetchSignals(context.query)).signals;
+
+  // Nothing relevant came back. Refusing to write a memo is the honest answer:
+  // a confident summary of unrelated threads is worse than no summary.
+  if (allSignals.length === 0) {
+    return {
+      serviceId,
+      output:
+        serviceId === 'brief-writer'
+          ? {
+              memo:
+                'No relevant source material was found for this question, so no memo was written. The search is a keyword search over public discussion; try a narrower question with the specific product or market in it.',
+            }
+          : { notes: [], signalCount: 0 },
+      engine: 'deterministic',
+      note: 'no relevant source found — nothing was written from unrelated data',
+      computeMs: Date.now() - started,
+    };
+  }
+
   // Four threads is enough context for a short answer and materially faster.
   const signals = allSignals.slice(0, 4);
-  const sourceNote =
-    (context.intel as { source?: 'live' | 'cached' } | null | undefined)?.source === 'cached'
-      ? 'cached snapshot'
-      : 'live signals';
+  const sourceNote = 'live signals';
 
   if (serviceId === 'summarize') {
     if (llmConfigured()) {
